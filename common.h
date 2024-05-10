@@ -6,7 +6,7 @@
 #include <sys/types.h>
 
 uint16_t read_port(char const *string);
-struct sockaddr_in get_server_address(char const *host, uint16_t port);
+struct sockaddr_in get_server_address(char const *host, uint16_t port, bool useIPv4, bool useIPv6);
 ssize_t readn(int fd, char *vptr, size_t n);
 ssize_t writen(int fd, char *vptr, size_t n);
 

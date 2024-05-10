@@ -1,5 +1,6 @@
 #include <iostream>
 #include <string>
+#include <netinet/in.h>
 
 #include "common.h"
 #include "messages.h"
@@ -49,7 +50,8 @@ int main(int argc, char* argv[]) {
     bool useIPv4 = false, useIPv6 = false, isAutoPlayer = false;
     char seat;
     parse_arguments(argc, argv, &host, &port, &useIPv4, &useIPv6, &isAutoPlayer, &seat);
-    
+
+    struct sockaddr_in server_address = get_server_address(host, port, useIPv4, useIPv6);
 
    return 0;
 }

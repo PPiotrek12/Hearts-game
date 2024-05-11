@@ -51,12 +51,12 @@ TRICK_message put_card(vector <card> avaible_cards, TRICK_message trick) { // TO
     res.cards.push_back(avaible_cards.back());
     return res;
 }
-void remove_card(vector <card> avaible_cards, TAKEN_message taken) {
-    for (int i = 0; i < (int)avaible_cards.size(); i++) {
+void remove_card(vector <card> *avaible_cards, TAKEN_message taken) {
+    for (int i = 0; i < (int)(*avaible_cards).size(); i++) {
         for (int j = 0; j < (int)taken.cards.size(); j++) {
-            if (avaible_cards[i].color == taken.cards[j].color && 
-                    avaible_cards[i].value == taken.cards[j].value) {
-                avaible_cards.erase(avaible_cards.begin() + i);
+            if ((*avaible_cards)[i].color == taken.cards[j].color && 
+                    (*avaible_cards)[i].value == taken.cards[j].value) {
+                (*avaible_cards).erase((*avaible_cards).begin() + i);
                 break;
             }
         }
@@ -74,7 +74,7 @@ int play_deal(int socket_fd, DEAL_message deal, bool first, bool isAutoPlayer) {
 
         if (mess.is_taken) { // Tricks played before our joining.
             if (isAutoPlayer) cout << mess.taken.describe();
-            remove_card(deal.cards, mess.taken);
+            remove_card(&(deal.cards), mess.taken);
             continue;
         }
 
@@ -91,7 +91,7 @@ int play_deal(int socket_fd, DEAL_message deal, bool first, bool isAutoPlayer) {
             mess = read_message(socket_fd);
         } while (!mess.is_taken);
         if (isAutoPlayer) cout << mess.taken.describe();
-        remove_card(deal.cards, mess.taken);
+        remove_card(&(deal.cards), mess.taken);
     }
     while (!mess.is_score)
         mess = read_message(socket_fd);

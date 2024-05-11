@@ -45,6 +45,60 @@ void parse_arguments(int argc, char* argv[], const char **host, uint16_t *port, 
     if (!wasSeatSet) fatal("missing seat argument");    
 }
 
+TRICK_message put_card(vector <card> avaible_cards, TRICK_message trick) { // TODO: implement it better.
+    TRICK_message res;
+    res.trick_number = trick.trick_number;
+    res.cards.push_back(avaible_cards.back());
+    return res;
+}
+void remove_card(vector <card> avaible_cards, TAKEN_message taken) {
+    for (int i = 0; i < (int)avaible_cards.size(); i++) {
+        for (int j = 0; j < (int)taken.cards.size(); j++) {
+            if (avaible_cards[i].color == taken.cards[j].color && 
+                    avaible_cards[i].value == taken.cards[j].value) {
+                avaible_cards.erase(avaible_cards.begin() + i);
+                break;
+            }
+        }
+    }
+}
+
+int play_deal(int socket_fd, DEAL_message deal, bool first, bool isAutoPlayer) {
+    message mess;
+    for (int i = 1; i <= 13; i++) {
+        do {
+            mess = read_message(socket_fd);
+        } while (!mess.is_trick && !mess.is_score && !(first && mess.is_taken));
+
+        if (mess.is_score) break; // The end of the deal.
+
+        if (mess.is_taken) { // Tricks played before our joining.
+            if (isAutoPlayer) cout << mess.taken.describe();
+            remove_card(deal.cards, mess.taken);
+            continue;
+        }
+
+        // Our turn in this trick.
+        if (isAutoPlayer) {
+            cout << mess.trick.describe(deal.cards);
+            // TODO: ask user for a card.
+        }
+
+        message move = {.trick = put_card(deal.cards, mess.trick), .is_trick = true};
+        send_message(socket_fd, move);
+
+        do {
+            mess = read_message(socket_fd);
+        } while (!mess.is_taken);
+        if (isAutoPlayer) cout << mess.taken.describe();
+        remove_card(deal.cards, mess.taken);
+    }
+    while (!mess.is_score)
+        mess = read_message(socket_fd);
+    if (!isAutoPlayer) cout << mess.score.describe();
+    return 0;
+}
+
 int main(int argc, char* argv[]) {
     const char *host;
     uint16_t port;
@@ -63,6 +117,26 @@ int main(int argc, char* argv[]) {
     message iam = {.iam = {.player = seat}, .is_iam = true};
     send_message(socket_fd, iam);
 
+    message mess;
+    do {
+        mess = read_message(socket_fd);
+    } while (!mess.is_busy && !mess.is_deal);
 
+    if (mess.is_busy) { // All places are busy - quiting.
+        if (!isAutoPlayer) cout << mess.busy.describe();
+        return 1;
+    }
+
+    // Here we are in the game - running through the deals.
+    bool first = true;
+    while (!mess.is_total) {
+        if (!isAutoPlayer) cout << mess.deal.describe();
+        play_deal(socket_fd, mess.deal, first, isAutoPlayer);
+        first = false;
+        do {
+            mess = read_message(socket_fd);
+        } while (!mess.is_deal && !mess.is_total);
+    }
+    if (!isAutoPlayer) cout << mess.total.describe();
     return 0;
 }

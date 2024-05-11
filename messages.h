@@ -141,6 +141,7 @@ struct TRICK_message {
         for (int i = 0; i < (int)avaible_cards.size(); i++)
             res += avaible_cards[i].to_message() + " ";
         res += ".\n";
+        return res;
     }
 };
 

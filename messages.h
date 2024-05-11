@@ -56,6 +56,13 @@ struct BUSY_message {
         res += "\r\n";
         return res;
     }
+    string describe() {
+        string res = "Place busy, list of busy places received: ";
+        for (int i = 0; i < (int)players.size(); i++)
+            res += string(1, players[i]);
+        res += ".\n";
+        return res;
+    }
 };
 
 struct DEAL_message {
@@ -81,6 +88,14 @@ struct DEAL_message {
         for (int i = 0; i < (int)cards.size(); i++)
             res += cards[i].to_message();
         res += "\r\n";
+        return res;
+    }
+    string describe() {
+        string res = "New deal " + to_string(deal_type) + ": starting place "
+                     + string(1, first_player) + ", your cards: ";
+        for (int i = 0; i < (int)cards.size(); i++)
+            res += cards[i].to_message() + " ";
+        res += ".\n";
         return res;
     }
 };
@@ -117,6 +132,16 @@ struct TRICK_message {
         res += "\r\n";
         return res;
     }
+    string describe(vector <card> avaible_cards) {
+        string res = "Trick: (" + to_string(trick_number) + ") ";
+        for (int i = 0; i < (int)cards.size(); i++)
+            res += cards[i].to_message() + " ";
+        res += "\n";
+        res += "Available: ";
+        for (int i = 0; i < (int)avaible_cards.size(); i++)
+            res += avaible_cards[i].to_message() + " ";
+        res += ".\n";
+    }
 };
 
 struct WRONG_message {
@@ -134,6 +159,9 @@ struct WRONG_message {
         res += string(1, trick_number % 10 + '0');
         res += "\r\n";
         return res;
+    }
+    string describe() {
+        return "Wrong message received in trick " + to_string(trick_number) + ".\n";
     }
 };
 
@@ -172,6 +200,13 @@ struct TAKEN_message {
         res += "\r\n";
         return res;
     }
+    string describe() {
+        string res = "A trick " + to_string(trick_number) + " is taken by " + player + ", cards ";
+        for (int i = 0; i < (int)cards.size(); i++)
+            res += cards[i].to_message() + " ";
+        res += ".\n";
+        return res;
+    }
 };
 
 struct SCORE_message {
@@ -202,6 +237,15 @@ struct SCORE_message {
         res += "\r\n";
         return res;
     }
+    string describe() {
+        string res;
+        if (is_total) res = "Total scores are:\n";
+        else res = "The scores are:\n";
+        for (int i = 0; i < (int)scores.size(); i++)
+            res += string(1, players[i]) + " | " + to_string(scores[i]) + "\n";
+        res += "\n";
+        return res;
+    }
 };
 
 struct message {
@@ -212,12 +256,12 @@ struct message {
     WRONG_message wrong = {};
     TAKEN_message taken = {};
     SCORE_message score = {}, total = {};
-    bool is_im = false, is_busy = false, is_deal = false, is_trick = false;
+    bool is_iam = false, is_busy = false, is_deal = false, is_trick = false;
     bool is_wrong = false, is_taken = false, is_score = false, is_total = false;
     void parse(string mess) {
         if (mess.substr(0, 3) == "IAM") {
             iam.parse(mess.substr(3, mess.size() - 3));
-            is_im = true;
+            is_iam = true;
         } else if (mess.substr(0, 4) == "BUSY") {
             busy.parse(mess.substr(4, mess.size() - 4));
             is_busy = true;
@@ -242,7 +286,7 @@ struct message {
         }
     }
     string to_message() {
-        if (is_im) return iam.to_message();
+        if (is_iam) return iam.to_message();
         if (is_busy) return busy.to_message();
         if (is_deal) return deal.to_message();
         if (is_trick) return trick.to_message();

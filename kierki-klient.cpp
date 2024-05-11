@@ -56,8 +56,13 @@ int main(int argc, char* argv[]) {
     struct sockaddr_in server_address = get_server_address(host, port, useIPv4, useIPv6);
     int socket_fd = socket(server_address.sin_family, SOCK_STREAM, 0);
     if (socket_fd == -1) syserr("socket");
-    if (connect(socket_fd, (struct sockaddr *)&server_address, (socklen_t)sizeof(server_address))<0)
-        syserr("connect");
-    
+    // if (connect(socket_fd, (struct sockaddr *)&server_address, (socklen_t)sizeof(server_address))<0)
+    //     syserr("connect");
+    socket_fd = 0; // TODO
+
+    message iam = {.iam = {.player = seat}, .is_iam = true};
+    send_message(socket_fd, iam);
+
+
     return 0;
 }

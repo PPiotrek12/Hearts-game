@@ -46,8 +46,6 @@ void parse_arguments(int argc, char* argv[], const char **host, uint16_t *port, 
 }
 
 int main(int argc, char* argv[]) {
-
-
     const char *host;
     uint16_t port;
     bool useIPv4 = false, useIPv6 = false, isAutoPlayer = false;

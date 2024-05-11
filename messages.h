@@ -3,6 +3,8 @@
 
 #include <string>
 #include <vector>
+#include <iostream>
+#include <stdlib.h>
 
 using namespace std;
 
@@ -18,12 +20,26 @@ struct card {
         else value = mess[0] - '0';
         color = mess[mess.size() - 1];
     }
+    string to_message() {
+        string res;
+        if (value == 10) res += "10";
+        else if (value == 11) res += "J";
+        else if (value == 12) res += "Q";
+        else if (value == 13) res += "K";
+        else if (value == 14) res += "A";
+        else res += (char)(value + '0');
+        res += color;
+        return res;
+    }
 };
 
 struct IAM_message {
     char player;
     void parse(string mess) {
         player = mess[0];
+    }
+    string to_message() {
+        return "IAM" + string(1, player) + "\r\n";
     }
 };
 
@@ -32,6 +48,13 @@ struct BUSY_message {
     void parse(string mess) {
         for (int i = 0; i < (int)mess.size(); i++)
             players.push_back(mess[i]);
+    }
+    string to_message() {
+        string res = "BUSY";
+        for (int i = 0; i < (int)players.size(); i++)
+            res += string(1, players[i]);
+        res += "\r\n";
+        return res;
     }
 };
 
@@ -52,6 +75,13 @@ struct DEAL_message {
                 i++;
             }
         }
+    }
+    string to_message() {
+        string res = "DEAL" + string(1, deal_type + '0') + string(1, first_player);
+        for (int i = 0; i < (int)cards.size(); i++)
+            res += cards[i].to_message();
+        res += "\r\n";
+        return res;
     }
 };
 
@@ -78,6 +108,15 @@ struct TRICK_message {
             }
         }
     }
+    string to_message() {
+        string res = "TRICK";
+        if (trick_number > 9) res += string(1, trick_number / 10 + '0');
+        res += string(1, trick_number % 10 + '0');
+        for (int i = 0; i < (int)cards.size(); i++)
+            res += cards[i].to_message();
+        res += "\r\n";
+        return res;
+    }
 };
 
 struct WRONG_message {
@@ -88,6 +127,13 @@ struct WRONG_message {
             trick_number *= 10;
             trick_number += mess[1] - '0';
         }
+    }
+    string to_message() {
+        string res = "WRONG";
+        if (trick_number > 9) res += string(1, trick_number / 10 + '0');
+        res += string(1, trick_number % 10 + '0');
+        res += "\r\n";
+        return res;
     }
 };
 
@@ -116,12 +162,24 @@ struct TAKEN_message {
         }
         player = mess[mess.size() - 1];
     }
+    string to_message() {
+        string res = "TAKEN";
+        if (trick_number > 9) res += string(1, trick_number / 10 + '0');
+        res += string(1, trick_number % 10 + '0');
+        for (int i = 0; i < (int)cards.size(); i++)
+            res += cards[i].to_message();
+        res += string(1, player);
+        res += "\r\n";
+        return res;
+    }
 };
 
 struct SCORE_message {
     vector <int> scores;
     vector <char> players;
-    void parse(string mess) {
+    bool is_total = false;
+    void parse(string mess, bool total = false) {
+        is_total = total;
         int last_palyer = -1;
         for (int i = 0; i < (int)mess.size(); i++) {
             if (mess[i] == 'E' || mess[i] == 'N' || mess[i] == 'W' || mess[i] == 'S') {
@@ -133,16 +191,27 @@ struct SCORE_message {
         }
         scores.push_back(atoi(mess.substr(last_palyer + 1, mess.size() - last_palyer - 1).c_str()));
     }
+    string to_message() {
+        string res;
+        if (is_total) res = "TOTAL";
+        else res = "SCORE";
+        for (int i = 0; i < (int)scores.size(); i++) {
+            res += string(1, players[i]);
+            res += to_string(scores[i]);
+        }
+        res += "\r\n";
+        return res;
+    }
 };
 
 struct message {
-    IAM_message iam;
-    BUSY_message busy;
-    DEAL_message deal;
-    TRICK_message trick;
-    WRONG_message wrong;
-    TAKEN_message taken;
-    SCORE_message score, total;
+    IAM_message iam = {};
+    BUSY_message busy = {};
+    DEAL_message deal = {};
+    TRICK_message trick = {};
+    WRONG_message wrong = {};
+    TAKEN_message taken = {};
+    SCORE_message score = {}, total = {};
     bool is_im = false, is_busy = false, is_deal = false, is_trick = false;
     bool is_wrong = false, is_taken = false, is_score = false, is_total = false;
     void parse(string mess) {
@@ -165,15 +234,27 @@ struct message {
             taken.parse(mess.substr(5, mess.size() - 5));
             is_taken = true;
         } else if (mess.substr(0, 5) == "SCORE") {
-            score.parse(mess.substr(5, mess.size() - 5));
+            score.parse(mess.substr(5, mess.size() - 5), false);
             is_score = true;
         } else if (mess.substr(0, 5) == "TOTAL") {
-            total.parse(mess.substr(5, mess.size() - 5));
+            total.parse(mess.substr(5, mess.size() - 5), true);
             is_total = true;
         }
+    }
+    string to_message() {
+        if (is_im) return iam.to_message();
+        if (is_busy) return busy.to_message();
+        if (is_deal) return deal.to_message();
+        if (is_trick) return trick.to_message();
+        if (is_wrong) return wrong.to_message();
+        if (is_taken) return taken.to_message();
+        if (is_score) return score.to_message();
+        if (is_total) return total.to_message();
+        return "";
     }
 };
 
 message read_message(int fd);
+void send_message(int fd, message mess);
 
 #endif

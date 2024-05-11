@@ -18,7 +18,14 @@ message read_message(int fd) {
         mess += act;
     } while (act != '\n');
     mess = mess.substr(0, mess.size() - 2);
+    cout<<mess<<endl;
     message res;
     res.parse(mess);
     return res;
+}
+
+void send_message(int fd, message mess) {
+    string to_send = mess.to_message();
+    if (writen(fd, (char*)to_send.c_str(), to_send.size()) < 0)
+        syserr("write");
 }

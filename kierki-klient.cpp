@@ -5,6 +5,7 @@
 #include "common.h"
 #include "messages.h"
 #include "err.h"
+#include <signal.h>
 
 using namespace std;
 
@@ -45,13 +46,20 @@ void parse_arguments(int argc, char* argv[], const char **host, uint16_t *port, 
 }
 
 int main(int argc, char* argv[]) {
+
+
     const char *host;
     uint16_t port;
     bool useIPv4 = false, useIPv6 = false, isAutoPlayer = false;
     char seat;
     parse_arguments(argc, argv, &host, &port, &useIPv4, &useIPv6, &isAutoPlayer, &seat);
 
+    signal(SIGPIPE, SIG_IGN);
     struct sockaddr_in server_address = get_server_address(host, port, useIPv4, useIPv6);
-
-   return 0;
+    int socket_fd = socket(server_address.sin_family, SOCK_STREAM, 0);
+    if (socket_fd == -1) syserr("socket");
+    if (connect(socket_fd, (struct sockaddr *)&server_address, (socklen_t)sizeof(server_address))<0)
+        syserr("connect");
+    
+    return 0;
 }

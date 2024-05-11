@@ -14,7 +14,7 @@ common.o: common.cpp err.h common.h
 err.o: err.cpp err.h
 kierki-klient.o: kierki-klient.cpp common.h messages.h err.h
 kierki-serwer.o: kierki-serwer.cpp common.h messages.h err.h
-messages.o: messages.cpp messages.h
+messages.o: messages.cpp messages.h common.h err.h
 
 clean:
 	rm -f *.o $(TARGETS)

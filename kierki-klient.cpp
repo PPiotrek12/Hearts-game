@@ -117,26 +117,70 @@ int main(int argc, char* argv[]) {
     message iam = {.iam = {.player = seat}, .is_iam = true};
     send_message(socket_fd, iam);
 
-    message mess;
-    do {
-        mess = read_message(socket_fd);
-    } while (!mess.is_busy && !mess.is_deal);
+    bool first_message = true;
+    bool in_deal = false;
+    bool in_trick = false;
+    bool receive_previous_taken = false;
+    Deal act_deal;
+    int act_trick_number = 0;
 
-    if (mess.is_busy) { // All places are busy - quiting.
-        if (!isAutoPlayer) cout << mess.busy.describe();
-        return 1;
+    while (true) {
+        message mess = read_message(socket_fd);
+
+        if (mess.is_busy) {
+            if (first_message) {
+                if (!isAutoPlayer) cout << mess.busy.describe();
+                return 1;
+            }
+        }
+        if (mess.is_deal) {
+            if (in_deal) continue;
+
+            if (first_message) receive_previous_taken = true;
+            else receive_previous_taken = false;
+
+            if (!isAutoPlayer) cout << mess.deal.describe();
+            in_deal = true;
+            act_deal = mess.deal;
+            first_message = false;
+            act_trick_number = 0;
+        }
+        if (mess.is_trick) {
+            if (!in_deal || in_trick) continue;
+            if (mess.trick.trick_number != act_trick_number + 1) continue;
+
+            if (!isAutoPlayer) cout << mess.trick.describe(act_deal.cards);
+            in_trick = true;
+            act_trick_number = mess.trick.trick_number;
+            receive_previous_taken = false;
+            message move = {.trick = put_card(act_deal.cards, mess.trick), .is_trick = true};
+            send_message(socket_fd, move);
+        }
+        if (mess.is_taken) {
+            if (!in_deal || (!in_trick && !receive_previous_taken)) continue;
+            // Check if taken is from the current trick.
+            if (in_trick && mess.taken.trick_number != act_trick_number) continue;
+            // Check if taken is after last taken (if not in trick).
+            if (!in_trick && mess.taken.trick_number != act_trick_number + 1) continue;
+
+            if (!isAutoPlayer) cout << mess.taken.describe();
+            act_trick_number = mess.taken.trick_number;
+            in_trick = false;
+            remove_card(&(act_deal.cards), mess.taken);
+        }
+        if (mess.is_score) {
+            if (!in_deal || in_trick) continue;
+
+            if (!isAutoPlayer) cout << mess.score.describe();
+            in_deal = false;
+        }
+        if (mess.is_total) {
+            if (in_deal) continue;
+
+            if (!isAutoPlayer) cout << mess.total.describe();
+            return 0;
+        }
     }
 
-    // Here we are in the game - running through the deals.
-    bool first = true;
-    while (!mess.is_total) {
-        if (!isAutoPlayer) cout << mess.deal.describe();
-        play_deal(socket_fd, mess.deal, first, isAutoPlayer);
-        first = false;
-        do {
-            mess = read_message(socket_fd);
-        } while (!mess.is_deal && !mess.is_total);
-    }
-    if (!isAutoPlayer) cout << mess.total.describe();
-    return 0;
+   return 0;
 }

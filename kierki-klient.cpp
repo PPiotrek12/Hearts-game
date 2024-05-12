@@ -155,6 +155,11 @@ void process_trick_message(shared_ptr<Game> game, Trick trick) {
     game->remove_card(move.trick.cards);
 }
 
+void process_wrong_message(shared_ptr<Game> game, Wrong wrong) {
+    if (!game->in_deal || game->in_trick) return;
+    if (!game->is_auto_playes) cout << wrong.describe();
+}
+
 void process_taken_message(shared_ptr<Game> game, Taken taken) {
     if (!game->in_deal || (!game->in_trick && !game->receive_previous_taken)) return;
     // Check if taken is from the current trick.
@@ -197,7 +202,6 @@ int main(int argc, char* argv[]) {
     if (socket_fd == -1) syserr("socket");
     if (connect(socket_fd, (struct sockaddr *)&server_address, (socklen_t)sizeof(server_address))<0)
         syserr("connect");
-    // socket_fd = 0; // TODO
 
     pollfd fds[2];
     fds[0].fd = socket_fd; // The first socket is the server socket.
@@ -223,6 +227,7 @@ int main(int argc, char* argv[]) {
             if (mess.is_busy) process_busy_message(game, mess.busy);
             if (mess.is_deal) process_deal_message(game, mess.deal);
             if (mess.is_trick) process_trick_message(game, mess.trick);
+            if (mess.is_wrong) process_wrong_message(game, mess.wrong);
             if (mess.is_taken) process_taken_message(game, mess.taken);
             if (mess.is_score) process_score_message(game, mess.score);
             if (mess.is_total) process_total_message(game, mess.total);

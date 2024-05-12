@@ -7,6 +7,7 @@
 #include <memory>
 #include <vector>
 #include <cstdio>
+#include <poll.h>
 
 
 #include "common.h"
@@ -15,17 +16,6 @@
 #include <signal.h>
 
 using namespace std;
-
-struct Game {
-    bool first_message = true;
-    bool in_deal = false;
-    bool in_trick = false;
-    bool receive_previous_taken = false;
-    bool isAutoPlayer = false;
-    Deal act_deal;
-    int act_trick_number = 0;
-    int socket_fd;
-};
 
 void parse_arguments(int argc, char* argv[], const char **host, uint16_t *port, bool *useIPv4,
                      bool *useIPv6, bool *isAutoPlayer, char *seat) {
@@ -63,22 +53,56 @@ void parse_arguments(int argc, char* argv[], const char **host, uint16_t *port, 
     if (!wasSeatSet) fatal("missing seat argument");    
 }
 
-Trick put_card(vector <Card> avaible_cards, Trick trick) { // TODO: implement it better.
+struct Game {
+    bool first_message = true;
+    bool receive_previous_taken = false;
+    bool in_deal = false, in_trick = false;
+    bool isAutoPlayer = false;
+    int act_trick_number = 0;
+    int socket_fd;
+    Deal act_deal;
+    vector <Taken> all_taken;
+
+    void add_taken(Taken taken) {
+        all_taken.push_back(taken);
+    }
+    void clear_taken() {
+        all_taken.clear();
+    }
+    void remove_card(Taken taken) {
+        for (int i = 0; i < (int)(act_deal.cards).size(); i++) {
+            for (int j = 0; j < (int)taken.cards.size(); j++) {
+                if (act_deal.cards[i].color == taken.cards[j].color && 
+                        act_deal.cards[i].value == taken.cards[j].value) {
+                    act_deal.cards.erase(act_deal.cards.begin() + i);
+                    break;
+                }
+            }
+        }
+    }
+    void print_all_taken() {
+        for (int i = 0; i < (int)all_taken.size(); i++) {
+            for (int j = 0; j < (int)all_taken[i].cards.size(); j++) {
+                cout << all_taken[i].cards[j].value << all_taken[i].cards[j].color;
+                if (j + 1 < (int)all_taken[i].cards.size()) cout << ", ";
+            }
+            cout << "\n";
+        }
+    }
+    void print_avaible_cards() {
+        for (int i = 0; i < (int)act_deal.cards.size(); i++) {
+            cout << act_deal.cards[i].value << act_deal.cards[i].color;
+            if (i + 1 < (int)act_deal.cards.size()) cout << ", ";
+        }
+        cout << "\n";
+    }
+};
+
+Trick play_a_card(vector <Card> avaible_cards, Trick trick) { // TODO: implement it better.
     Trick res;
     res.trick_number = trick.trick_number;
     res.cards.push_back(avaible_cards.back());
     return res;
-}
-void remove_card(vector <Card> *avaible_cards, Taken taken) {
-    for (int i = 0; i < (int)(*avaible_cards).size(); i++) {
-        for (int j = 0; j < (int)taken.cards.size(); j++) {
-            if ((*avaible_cards)[i].color == taken.cards[j].color && 
-                    (*avaible_cards)[i].value == taken.cards[j].value) {
-                (*avaible_cards).erase((*avaible_cards).begin() + i);
-                break;
-            }
-        }
-    }
 }
 
 void process_busy_message(shared_ptr<Game> game, Busy busy) {
@@ -108,7 +132,7 @@ void process_trick_message(shared_ptr<Game> game, Trick trick) {
     game->in_trick = true;
     game->act_trick_number = trick.trick_number;
     game->receive_previous_taken = false;
-    message move = {.trick = put_card(game->act_deal.cards, trick), .is_trick = true};
+    message move = {.trick = play_a_card(game->act_deal.cards, trick), .is_trick = true};
     send_message(game->socket_fd, move);
 }
 
@@ -122,7 +146,8 @@ void process_taken_message(shared_ptr<Game> game, Taken taken) {
     if (!game->isAutoPlayer) cout << taken.describe();
     game->act_trick_number = taken.trick_number;
     game->in_trick = false;
-    remove_card(&(game->act_deal.cards), taken);
+    game->add_taken(taken);
+    game->remove_card(taken);
 }
 
 void process_score_message(shared_ptr<Game> game, Score score) {
@@ -154,6 +179,12 @@ int main(int argc, char* argv[]) {
     //     syserr("connect");
     socket_fd = 0; // TODO
 
+    pollfd fds[2];
+    fds[0].fd = socket_fd; // The first socket is the server socket.
+    fds[0].events = POLLIN;
+    fds[1].fd = STDIN_FILENO; // The second socket is the standard input.
+    fds[1].events = POLLIN;
+
     message iam = {.iam = {.player = seat}, .is_iam = true};
     send_message(socket_fd, iam);
 
@@ -162,13 +193,25 @@ int main(int argc, char* argv[]) {
     game->socket_fd = socket_fd;
 
     while (true) {
-       message mess = read_message(1); // TODO
-        if (mess.is_busy) process_busy_message(game, mess.busy);
-        if (mess.is_deal) process_deal_message(game, mess.deal);
-        if (mess.is_trick) process_trick_message(game, mess.trick);
-        if (mess.is_taken) process_taken_message(game, mess.taken);
-        if (mess.is_score) process_score_message(game, mess.score);
-        if (mess.is_total) process_total_message(game, mess.total);
+        fds[0].revents = fds[1].revents = 0;
+        int poll_status = poll(fds, 2, -1);
+        if (poll_status < 0) syserr("poll");
+        if (poll_status == 0) continue;
+        if (fds[0].revents & POLLIN) {
+            message mess = read_message(socket_fd);
+            if (mess.is_busy) process_busy_message(game, mess.busy);
+            if (mess.is_deal) process_deal_message(game, mess.deal);
+            if (mess.is_trick) process_trick_message(game, mess.trick);
+            if (mess.is_taken) process_taken_message(game, mess.taken);
+            if (mess.is_score) process_score_message(game, mess.score);
+            if (mess.is_total) process_total_message(game, mess.total);
+        }
+        if (fds[1].revents & POLLIN) {
+            string input;
+            cin >> input;
+            if (input == "cards") game->print_avaible_cards();
+            if (input == "tricks") game->print_all_taken();
+        }
     }
     return 0;
 }

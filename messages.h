@@ -20,6 +20,19 @@ struct Card {
         else value = mess[0] - '0';
         color = mess[mess.size() - 1];
     }
+    static bool is_card_correct(string mess) {
+        if (mess.size() == 2) {
+            if (((mess[0] >= '2' && mess[0] <= '9') || 
+                    mess[0] == 'J' || mess[0] == 'Q' || mess[0] == 'K' || mess[0] == 'A') &&
+                    (mess[1] == 'S' || mess[1] == 'H' || mess[1] == 'D' || mess[1] == 'C'))
+                return true;
+        } else if (mess.size() == 3) {
+            if (mess[0] == '1' && mess[1] == '0' &&
+                    (mess[2] == 'S' || mess[2] == 'H' || mess[2] == 'D' || mess[2] == 'C'))
+                return true;
+        }
+        return false;
+    }
     string to_str() {
         string res;
         if (value == 10) res += "10";

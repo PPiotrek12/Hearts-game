@@ -45,13 +45,13 @@ void parse_arguments(int argc, char* argv[], const char **host, uint16_t *port, 
     if (!wasSeatSet) fatal("missing seat argument");    
 }
 
-TRICK_message put_card(vector <card> avaible_cards, TRICK_message trick) { // TODO: implement it better.
-    TRICK_message res;
+Trick put_card(vector <Card> avaible_cards, Trick trick) { // TODO: implement it better.
+    Trick res;
     res.trick_number = trick.trick_number;
     res.cards.push_back(avaible_cards.back());
     return res;
 }
-void remove_card(vector <card> *avaible_cards, TAKEN_message taken) {
+void remove_card(vector <Card> *avaible_cards, Taken taken) {
     for (int i = 0; i < (int)(*avaible_cards).size(); i++) {
         for (int j = 0; j < (int)taken.cards.size(); j++) {
             if ((*avaible_cards)[i].color == taken.cards[j].color && 
@@ -63,7 +63,7 @@ void remove_card(vector <card> *avaible_cards, TAKEN_message taken) {
     }
 }
 
-int play_deal(int socket_fd, DEAL_message deal, bool first, bool isAutoPlayer) {
+int play_deal(int socket_fd, Deal deal, bool first, bool isAutoPlayer) {
     message mess;
     for (int i = 1; i <= 13; i++) {
         do {
@@ -81,7 +81,7 @@ int play_deal(int socket_fd, DEAL_message deal, bool first, bool isAutoPlayer) {
         // Our turn in this trick.
         if (isAutoPlayer) {
             cout << mess.trick.describe(deal.cards);
-            // TODO: ask user for a card.
+            // TODO: ask user for a Card.
         }
 
         message move = {.trick = put_card(deal.cards, mess.trick), .is_trick = true};

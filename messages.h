@@ -8,10 +8,10 @@
 
 using namespace std;
 
-struct card {
+struct Card {
     string color;
     int value;
-    card(string mess) {
+    Card(string mess) {
         if (mess[0] == '1') value = 10;
         else if (mess[0] == 'J') value = 11;
         else if (mess[0] == 'Q') value = 12;
@@ -20,7 +20,7 @@ struct card {
         else value = mess[0] - '0';
         color = mess[mess.size() - 1];
     }
-    string to_message() {
+    string to_str() {
         string res;
         if (value == 10) res += "10";
         else if (value == 11) res += "J";
@@ -33,7 +33,7 @@ struct card {
     }
 };
 
-struct IAM_message {
+struct Iam {
     char player;
     void parse(string mess) {
         player = mess[0];
@@ -43,7 +43,7 @@ struct IAM_message {
     }
 };
 
-struct BUSY_message {
+struct Busy {
     vector <char> players;
     void parse(string mess) {
         for (int i = 0; i < (int)mess.size(); i++)
@@ -65,20 +65,20 @@ struct BUSY_message {
     }
 };
 
-struct DEAL_message {
+struct Deal {
     int deal_type;
     char first_player;
-    vector <card> cards;
+    vector <Card> cards;
     void parse(string mess) {
         deal_type = mess[0] - '0';
         first_player = mess[1];
         for (int i = 2; i < (int)mess.size(); i++) {
             if (mess[i] == '1') {
-                cards.push_back(card(mess.substr(i, 3)));
+                cards.push_back(Card(mess.substr(i, 3)));
                 i += 2;
             }
             else {
-                cards.push_back(card(mess.substr(i, 2)));
+                cards.push_back(Card(mess.substr(i, 2)));
                 i++;
             }
         }
@@ -86,7 +86,7 @@ struct DEAL_message {
     string to_message() {
         string res = "DEAL" + string(1, deal_type + '0') + string(1, first_player);
         for (int i = 0; i < (int)cards.size(); i++)
-            res += cards[i].to_message();
+            res += cards[i].to_str();
         res += "\r\n";
         return res;
     }
@@ -94,15 +94,15 @@ struct DEAL_message {
         string res = "New deal " + to_string(deal_type) + ": starting place "
                      + string(1, first_player) + ", your cards: ";
         for (int i = 0; i < (int)cards.size(); i++)
-            res += cards[i].to_message() + " ";
+            res += cards[i].to_str() + " ";
         res += ".\n";
         return res;
     }
 };
 
-struct TRICK_message {
+struct Trick {
     int trick_number;
-    vector <card> cards;
+    vector <Card> cards;
     void parse(string mess) {
         trick_number = mess[0] - '0';
         int i = 1;
@@ -114,11 +114,11 @@ struct TRICK_message {
         }
         for (; i < (int)mess.size(); i++) {
             if (mess[i] == '1') {
-                cards.push_back(card(mess.substr(i, 3)));
+                cards.push_back(Card(mess.substr(i, 3)));
                 i += 2;
             }
             else {
-                cards.push_back(card(mess.substr(i, 2)));
+                cards.push_back(Card(mess.substr(i, 2)));
                 i++;
             }
         }
@@ -128,24 +128,24 @@ struct TRICK_message {
         if (trick_number > 9) res += string(1, trick_number / 10 + '0');
         res += string(1, trick_number % 10 + '0');
         for (int i = 0; i < (int)cards.size(); i++)
-            res += cards[i].to_message();
+            res += cards[i].to_str();
         res += "\r\n";
         return res;
     }
-    string describe(vector <card> avaible_cards) {
+    string describe(vector <Card> avaible_cards) {
         string res = "Trick: (" + to_string(trick_number) + ") ";
         for (int i = 0; i < (int)cards.size(); i++)
-            res += cards[i].to_message() + " ";
+            res += cards[i].to_str() + " ";
         res += "\n";
         res += "Available: ";
         for (int i = 0; i < (int)avaible_cards.size(); i++)
-            res += avaible_cards[i].to_message() + " ";
+            res += avaible_cards[i].to_str() + " ";
         res += ".\n";
         return res;
     }
 };
 
-struct WRONG_message {
+struct Wrong {
     int trick_number;
     void parse(string mess) {
         trick_number = mess[0] - '0';
@@ -166,10 +166,10 @@ struct WRONG_message {
     }
 };
 
-struct TAKEN_message {
+struct Taken {
     int trick_number;
     char player;
-    vector <card> cards;
+    vector <Card> cards;
     void parse(string mess) {
         trick_number = mess[0] - '0';
         int i = 1;
@@ -181,11 +181,11 @@ struct TAKEN_message {
         }
         for (; i < (int)mess.size() - 1; i++) {
             if (mess[i] == '1') {
-                cards.push_back(card(mess.substr(i, 3)));
+                cards.push_back(Card(mess.substr(i, 3)));
                 i += 2;
             }
             else {
-                cards.push_back(card(mess.substr(i, 2)));
+                cards.push_back(Card(mess.substr(i, 2)));
                 i++;
             }
         }
@@ -196,7 +196,7 @@ struct TAKEN_message {
         if (trick_number > 9) res += string(1, trick_number / 10 + '0');
         res += string(1, trick_number % 10 + '0');
         for (int i = 0; i < (int)cards.size(); i++)
-            res += cards[i].to_message();
+            res += cards[i].to_str();
         res += string(1, player);
         res += "\r\n";
         return res;
@@ -204,13 +204,13 @@ struct TAKEN_message {
     string describe() {
         string res = "A trick " + to_string(trick_number) + " is taken by " + player + ", cards ";
         for (int i = 0; i < (int)cards.size(); i++)
-            res += cards[i].to_message() + " ";
+            res += cards[i].to_str() + " ";
         res += ".\n";
         return res;
     }
 };
 
-struct SCORE_message {
+struct Score {
     vector <int> scores;
     vector <char> players;
     bool is_total = false;
@@ -250,13 +250,13 @@ struct SCORE_message {
 };
 
 struct message {
-    IAM_message iam = {};
-    BUSY_message busy = {};
-    DEAL_message deal = {};
-    TRICK_message trick = {};
-    WRONG_message wrong = {};
-    TAKEN_message taken = {};
-    SCORE_message score = {}, total = {};
+    Iam iam = {};
+    Busy busy = {};
+    Deal deal = {};
+    Trick trick = {};
+    Wrong wrong = {};
+    Taken taken = {};
+    Score score = {}, total = {};
     bool is_iam = false, is_busy = false, is_deal = false, is_trick = false;
     bool is_wrong = false, is_taken = false, is_score = false, is_total = false;
     void parse(string mess) {

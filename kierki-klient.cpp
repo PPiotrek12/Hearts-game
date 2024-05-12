@@ -1,6 +1,13 @@
 #include <iostream>
 #include <string>
 #include <netinet/in.h>
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#include <memory>
+#include <vector>
+#include <cstdio>
+
 
 #include "common.h"
 #include "messages.h"
@@ -74,13 +81,13 @@ void remove_card(vector <Card> *avaible_cards, Taken taken) {
     }
 }
 
-void process_busy_message(Game *game, Busy busy) {
+void process_busy_message(shared_ptr<Game> game, Busy busy) {
     if (!game->first_message) return;
     if (!game->isAutoPlayer) cout << busy.describe();
     exit(1);
 }
 
-void process_deal_message(Game *game, Deal deal) {
+void process_deal_message(shared_ptr<Game> game, Deal deal) {
     if (game->in_deal) return;
 
     if (game->first_message) game->receive_previous_taken = true;
@@ -93,7 +100,7 @@ void process_deal_message(Game *game, Deal deal) {
     game->act_trick_number = 0;
 }
 
-void process_trick_message(Game *game, Trick trick) {
+void process_trick_message(shared_ptr<Game> game, Trick trick) {
     if (!game->in_deal || game->in_trick) return;
     if (trick.trick_number != game->act_trick_number + 1) return;
 
@@ -105,7 +112,7 @@ void process_trick_message(Game *game, Trick trick) {
     send_message(game->socket_fd, move);
 }
 
-void process_taken_message(Game *game, Taken taken) {
+void process_taken_message(shared_ptr<Game> game, Taken taken) {
     if (!game->in_deal || (!game->in_trick && !game->receive_previous_taken)) return;
     // Check if taken is from the current trick.
     if (game->in_trick && taken.trick_number != game->act_trick_number) return;
@@ -118,14 +125,14 @@ void process_taken_message(Game *game, Taken taken) {
     remove_card(&(game->act_deal.cards), taken);
 }
 
-void process_score_message(Game *game, Score score) {
+void process_score_message(shared_ptr<Game> game, Score score) {
     if (!game->in_deal || game->in_trick) return;
 
     if (!game->isAutoPlayer) cout << score.describe();
     game->in_deal = false;
 }
 
-void process_total_message(Game *game, Score total) {
+void process_total_message(shared_ptr<Game> game, Score total) {
     if (game->in_deal || game->in_trick) return;
 
     if (!game->isAutoPlayer) cout << total.describe();
@@ -150,12 +157,12 @@ int main(int argc, char* argv[]) {
     message iam = {.iam = {.player = seat}, .is_iam = true};
     send_message(socket_fd, iam);
 
-    Game *game = new Game();
+    shared_ptr<Game> game = make_shared<Game>();
     game->isAutoPlayer = isAuto;
     game->socket_fd = socket_fd;
 
     while (true) {
-        message mess = read_message(socket_fd);
+       message mess = read_message(1); // TODO
         if (mess.is_busy) process_busy_message(game, mess.busy);
         if (mess.is_deal) process_deal_message(game, mess.deal);
         if (mess.is_trick) process_trick_message(game, mess.trick);
@@ -163,6 +170,5 @@ int main(int argc, char* argv[]) {
         if (mess.is_score) process_score_message(game, mess.score);
         if (mess.is_total) process_total_message(game, mess.total);
     }
-
-   return 0;
+    return 0;
 }

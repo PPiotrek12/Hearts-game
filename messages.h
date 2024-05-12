@@ -58,8 +58,10 @@ struct Busy {
     }
     string describe() {
         string res = "Place busy, list of busy places received: ";
-        for (int i = 0; i < (int)players.size(); i++)
+        for (int i = 0; i < (int)players.size(); i++) {
             res += string(1, players[i]);
+            if (i != (int)players.size() - 1) res += ", ";
+        }
         res += ".\n";
         return res;
     }
@@ -93,8 +95,10 @@ struct Deal {
     string describe() {
         string res = "New deal " + to_string(deal_type) + ": starting place "
                      + string(1, first_player) + ", your cards: ";
-        for (int i = 0; i < (int)cards.size(); i++)
-            res += cards[i].to_str() + " ";
+        for (int i = 0; i < (int)cards.size(); i++) {
+            res += cards[i].to_str();
+            if (i != (int)cards.size() - 1) res += ", ";
+        }
         res += ".\n";
         return res;
     }
@@ -134,12 +138,16 @@ struct Trick {
     }
     string describe(vector <Card> avaible_cards) {
         string res = "Trick: (" + to_string(trick_number) + ") ";
-        for (int i = 0; i < (int)cards.size(); i++)
-            res += cards[i].to_str() + " ";
+        for (int i = 0; i < (int)cards.size(); i++) {
+            res += cards[i].to_str();
+            if (i != (int)cards.size() - 1) res += ", ";
+        }
         res += "\n";
         res += "Available: ";
-        for (int i = 0; i < (int)avaible_cards.size(); i++)
-            res += avaible_cards[i].to_str() + " ";
+        for (int i = 0; i < (int)avaible_cards.size(); i++) {
+            res += avaible_cards[i].to_str();
+            if (i != (int)avaible_cards.size() - 1) res += ", ";
+        }          
         res += ".\n";
         return res;
     }
@@ -203,8 +211,10 @@ struct Taken {
     }
     string describe() {
         string res = "A trick " + to_string(trick_number) + " is taken by " + player + ", cards ";
-        for (int i = 0; i < (int)cards.size(); i++)
-            res += cards[i].to_str() + " ";
+        for (int i = 0; i < (int)cards.size(); i++) {
+            res += cards[i].to_str();
+            if (i != (int)cards.size() - 1) res += ", ";
+        }
         res += ".\n";
         return res;
     }

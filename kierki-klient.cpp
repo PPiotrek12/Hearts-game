@@ -8,12 +8,12 @@
 #include <vector>
 #include <cstdio>
 #include <poll.h>
-
+#include <signal.h>
 
 #include "common.h"
 #include "messages.h"
 #include "err.h"
-#include <signal.h>
+#include "game_client.h"
 
 using namespace std;
 
@@ -53,79 +53,9 @@ void parse_arguments(int argc, char* argv[], const char **host, uint16_t *port, 
     if (!wasSeatSet) fatal("missing seat argument");    
 }
 
-struct Game {
-    bool first_message = true;
-    bool receive_previous_taken = false;
-    bool in_deal = false, in_trick = false;
-    bool is_auto_playes = false, waiting_for_user_move = false;
-    int act_trick_number = 0;
-    int socket_fd;
-    Deal act_deal;
-    vector <Taken> all_taken;
-
-    void add_taken(Taken taken) {
-        all_taken.push_back(taken);
-    }
-    void clear_taken() { // TODO - potrzebne?
-        all_taken.clear();
-    }
-    void remove_card(vector <Card> cards) {
-        for (int i = 0; i < (int)(act_deal.cards).size(); i++) {
-            for (int j = 0; j < (int)cards.size(); j++) {
-                if (act_deal.cards[i].color == cards[j].color && 
-                        act_deal.cards[i].value == cards[j].value) {
-                    act_deal.cards.erase(act_deal.cards.begin() + i);
-                    break;
-                }
-            }
-        }
-    }
-    void print_all_taken() {
-        for (int i = 0; i < (int)all_taken.size(); i++) {
-            for (int j = 0; j < (int)all_taken[i].cards.size(); j++) {
-                cout << all_taken[i].cards[j].to_str();
-                if (j + 1 < (int)all_taken[i].cards.size()) cout << ", ";
-            }
-            cout << "\n";
-        }
-    }
-    void print_avaible_cards() {
-        for (int i = 0; i < (int)act_deal.cards.size(); i++) {
-            cout << act_deal.cards[i].to_str();
-            if (i + 1 < (int)act_deal.cards.size()) cout << ", ";
-        }
-        cout << "\n";
-    }
-};
-
-Trick play_a_card(shared_ptr<Game> game, Trick trick) { // TODO: implement it better.
-    if (game->is_auto_playes) {
-        Trick res;
-        res.trick_number = trick.trick_number;
-        res.cards.push_back(game->act_deal.cards.back());
-        return res;
-    }
-    cout << "Choose a card to play: ";
-    string input;
-    while (true) {
-        cin >> input; // TODO: co jesli w tym miejscu uzytkownik zapyta o cards albo tricks?
-        if (input.size() < 3 || input[0] != '!' || 
-                !Card::is_card_correct(input.substr(1, input.size() - 1))) {
-            cout << "Wrong card format, try again: ";
-            continue;
-        }
-        else break;
-    }
-    Trick res;
-    res.trick_number = trick.trick_number;
-    res.cards.push_back(Card(input.substr(1, input.size() - 1)));
-    return res;
-}
-
 void process_busy_message(shared_ptr<Game> game, Busy busy) {
     if (!game->first_message) return;
     if (!game->is_auto_playes) cout << busy.describe();
-    exit(1);
 }
 
 void process_deal_message(shared_ptr<Game> game, Deal deal) {
@@ -186,44 +116,31 @@ void process_total_message(shared_ptr<Game> game, Score total) {
     if (game->in_deal || game->in_trick) return;
 
     if (!game->is_auto_playes) cout << total.describe();
-    exit(0);
+    game->game_over = true;
 }
 
-int main(int argc, char* argv[]) {
-    const char *host;
-    uint16_t port;
-    bool useIPv4 = false, useIPv6 = false, isAuto = false;
-    char seat;
-    parse_arguments(argc, argv, &host, &port, &useIPv4, &useIPv6, &isAuto, &seat);
-
-    signal(SIGPIPE, SIG_IGN);
-    struct sockaddr_in server_address = get_server_address(host, port, useIPv4, useIPv6);
-    int socket_fd = socket(server_address.sin_family, SOCK_STREAM, 0);
-    if (socket_fd == -1) syserr("socket");
-    if (connect(socket_fd, (struct sockaddr *)&server_address, (socklen_t)sizeof(server_address))<0)
-        syserr("connect");
-
-    pollfd fds[2];
-    fds[0].fd = socket_fd; // The first socket is the server socket.
-    fds[0].events = POLLIN;
-    fds[1].fd = STDIN_FILENO; // The second socket is the standard input.
-    fds[1].events = POLLIN;
+void main_game_loop(pollfd *fds, bool is_auto, char seat) {
+    shared_ptr<Game> game = make_shared<Game>();
+    game->is_auto_playes = is_auto;
+    game->socket_fd = fds[0].fd;
 
     message iam = {.iam = {.player = seat}, .is_iam = true};
-    send_message(socket_fd, iam);
-
-    shared_ptr<Game> game = make_shared<Game>();
-    game->is_auto_playes = isAuto;
-    game->socket_fd = socket_fd;
+    send_message(fds[0].fd, iam);
+    
+    int fds_nr = 2;
+    if (is_auto) fds_nr = 1;
 
     while (true) {
         fds[0].revents = fds[1].revents = 0;
-        int poll_status = poll(fds, 2, -1);
+        int poll_status = poll(fds, fds_nr, -1);
         if (poll_status < 0) syserr("poll");
         if (poll_status == 0) continue;
-        if (fds[0].revents & POLLIN) {
+        if (fds[0].revents & POLLIN) { // Server message.
             message mess = read_message(fds[0].fd);
-            cout<<mess.to_message()<<endl;
+            if (mess.closed_connection) {
+                if (game->game_over) exit(0);
+                else exit(1);
+            }
             if (mess.is_busy) process_busy_message(game, mess.busy);
             if (mess.is_deal) process_deal_message(game, mess.deal);
             if (mess.is_trick) process_trick_message(game, mess.trick);
@@ -232,14 +149,37 @@ int main(int argc, char* argv[]) {
             if (mess.is_score) process_score_message(game, mess.score);
             if (mess.is_total) process_total_message(game, mess.total);
         }
-        if (fds[1].revents & POLLIN) {
+        if (!is_auto && (fds[1].revents & POLLIN)) { // User input.
             string input;
             getline(cin, input);
             if (input.empty()) continue;
             if (input == "cards") game->print_avaible_cards();
-            else if (input == "tricks") game->print_all_taken();
+            else if (input == "tricks") game->print_all_tricks();
             else cout << "Wrong command.\n";
         }
     }
+}
+
+int main(int argc, char* argv[]) {
+    const char *host;
+    uint16_t port;
+    bool useIPv4 = false, useIPv6 = false, is_auto = false;
+    char seat;
+    parse_arguments(argc, argv, &host, &port, &useIPv4, &useIPv6, &is_auto, &seat);
+
+    signal(SIGPIPE, SIG_IGN);
+    struct sockaddr_in server_address = get_server_address(host, port, useIPv4, useIPv6);
+
+    pollfd fds[2]; // The first socket is the server socket and the second is the standard input.
+    fds[0].fd = socket(server_address.sin_family, SOCK_STREAM, 0); 
+    if (fds[0].fd == -1) syserr("socket");
+    fds[0].events = POLLIN;
+    fds[1].fd = STDIN_FILENO;
+    fds[1].events = POLLIN;
+
+    if (connect(fds[0].fd, (struct sockaddr *)&server_address, (socklen_t)sizeof(server_address))<0)
+        syserr("connect");
+
+    main_game_loop(fds, is_auto, seat);
     return 0;
 }

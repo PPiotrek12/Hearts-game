@@ -280,6 +280,7 @@ struct message {
     Wrong wrong = {};
     Taken taken = {};
     Score score = {}, total = {};
+    bool closed_connection = false;
     bool is_iam = false, is_busy = false, is_deal = false, is_trick = false;
     bool is_wrong = false, is_taken = false, is_score = false, is_total = false;
     void parse(string mess) {

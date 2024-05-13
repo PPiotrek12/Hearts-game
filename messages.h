@@ -8,6 +8,7 @@
 
 using namespace std;
 
+// Struct representing a card.
 struct Card {
     char color;
     int value;
@@ -46,6 +47,7 @@ struct Card {
     }
 };
 
+// Struct representing an IAM message.
 struct Iam {
     char player;
     void parse(string mess) {
@@ -56,6 +58,7 @@ struct Iam {
     }
 };
 
+// Struct representing a BUSY message.
 struct Busy {
     vector <char> players;
     void parse(string mess) {
@@ -80,6 +83,7 @@ struct Busy {
     }
 };
 
+// Struct representing a deal for one player.
 struct Deal {
     int deal_type;
     char first_player;
@@ -117,6 +121,7 @@ struct Deal {
     }
 };
 
+// Struct representing a trick for one player.
 struct Trick {
     int trick_number;
     vector <Card> cards;
@@ -166,6 +171,7 @@ struct Trick {
     }
 };
 
+// Struct representing a WRONG message.
 struct Wrong {
     int trick_number;
     void parse(string mess) {
@@ -187,6 +193,7 @@ struct Wrong {
     }
 };
 
+// Struct representing a TAKEN message.
 struct Taken {
     int trick_number;
     char player;
@@ -233,6 +240,7 @@ struct Taken {
     }
 };
 
+// Struct representing a SCORE message.
 struct Score {
     vector <int> scores;
     vector <char> players;
@@ -272,6 +280,7 @@ struct Score {
     }
 };
 
+// Struct representing a message.
 struct message {
     Iam iam = {};
     Busy busy = {};

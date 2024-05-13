@@ -19,7 +19,8 @@
 
 using namespace std;
 
-struct Game {
+// Struct representing a game stage in a specific moment for a client.
+struct Game_stage_client {
     bool first_message = true;
     bool receive_previous_taken = false;
     bool in_deal = false, in_trick = false;
@@ -31,12 +32,6 @@ struct Game {
     Trick act_trick;
     vector <Taken> all_taken;
 
-    void add_taken(Taken taken) {
-        all_taken.push_back(taken);
-    }
-    void clear_taken() { // TODO - potrzebne?
-        all_taken.clear();
-    }
     void remove_card(vector <Card> cards) {
         for (int i = 0; i < (int)(act_deal.cards).size(); i++) {
             for (int j = 0; j < (int)cards.size(); j++) {
@@ -66,6 +61,6 @@ struct Game {
     }
 };
 
-Trick play_a_card(shared_ptr<Game> game, Trick trick);
+Trick play_a_card(shared_ptr<Game_stage_client> game, Trick trick);
 
 #endif

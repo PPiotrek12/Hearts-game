@@ -53,12 +53,12 @@ void parse_arguments(int argc, char* argv[], const char **host, uint16_t *port, 
     if (!wasSeatSet) fatal("missing seat argument");    
 }
 
-void process_busy_message(shared_ptr<Game> game, Busy busy) {
+void process_busy_message(shared_ptr<Game_stage_client> game, Busy busy) {
     if (!game->first_message) return;
     if (!game->is_auto_playes) cout << busy.describe();
 }
 
-void process_deal_message(shared_ptr<Game> game, Deal deal) {
+void process_deal_message(shared_ptr<Game_stage_client> game, Deal deal) {
     if (game->in_deal) return;
 
     if (game->first_message) game->receive_previous_taken = true;
@@ -71,7 +71,7 @@ void process_deal_message(shared_ptr<Game> game, Deal deal) {
     game->act_trick_number = 0;
 }
 
-void process_trick_message(shared_ptr<Game> game, Trick trick) {
+void process_trick_message(shared_ptr<Game_stage_client> game, Trick trick) {
     if (!game->in_deal || game->in_trick) return;
     if (trick.trick_number != game->act_trick_number + 1) return;
 
@@ -86,7 +86,7 @@ void process_trick_message(shared_ptr<Game> game, Trick trick) {
     game->remove_card(move.trick.cards);
 }
 
-void process_wrong_message(shared_ptr<Game> game, Wrong wrong) {
+void process_wrong_message(shared_ptr<Game_stage_client> game, Wrong wrong) {
     if (!game->in_deal || !game->in_trick) return;
     if (wrong.trick_number != game->act_trick_number) return;
     if (!game->is_auto_playes) cout << wrong.describe();
@@ -96,7 +96,7 @@ void process_wrong_message(shared_ptr<Game> game, Wrong wrong) {
     game->remove_card(move.trick.cards);
 }
 
-void process_taken_message(shared_ptr<Game> game, Taken taken) {
+void process_taken_message(shared_ptr<Game_stage_client> game, Taken taken) {
     if (!game->in_deal || (!game->in_trick && !game->receive_previous_taken)) return;
     // Check if taken is from the current trick.
     if (game->in_trick && taken.trick_number != game->act_trick_number) return;
@@ -106,19 +106,20 @@ void process_taken_message(shared_ptr<Game> game, Taken taken) {
     if (!game->is_auto_playes) cout << taken.describe();
     game->act_trick_number = taken.trick_number;
     game->in_trick = false;
-    game->add_taken(taken);
+    game->all_taken.push_back(taken);
     if (!game->in_trick && game->receive_previous_taken) // Remove cards from previous trick.
         game->remove_card(taken.cards);
 }
 
-void process_score_message(shared_ptr<Game> game, Score score) {
+void process_score_message(shared_ptr<Game_stage_client> game, Score score) {
     if (!game->in_deal || game->in_trick) return;
 
     if (!game->is_auto_playes) cout << score.describe();
+    game->all_taken.clear(); // TODO: czy to jest poprawne?
     game->in_deal = false;
 }
 
-void process_total_message(shared_ptr<Game> game, Score total) {
+void process_total_message(shared_ptr<Game_stage_client> game, Score total) {
     if (game->in_deal || game->in_trick) return;
 
     if (!game->is_auto_playes) cout << total.describe();
@@ -126,7 +127,7 @@ void process_total_message(shared_ptr<Game> game, Score total) {
 }
 
 void main_client_loop(pollfd *fds, bool is_auto, char seat) {
-    shared_ptr<Game> game = make_shared<Game>();
+    shared_ptr<Game_stage_client> game = make_shared<Game_stage_client>();
     game->is_auto_playes = is_auto;
     game->socket_fd = fds[0].fd;
 
@@ -167,13 +168,13 @@ void main_client_loop(pollfd *fds, bool is_auto, char seat) {
 }
 
 int main(int argc, char* argv[]) {
+    signal(SIGPIPE, SIG_IGN);
     const char *host;
     uint16_t port;
     bool useIPv4 = false, useIPv6 = false, is_auto = false;
     char seat;
     parse_arguments(argc, argv, &host, &port, &useIPv4, &useIPv6, &is_auto, &seat);
 
-    signal(SIGPIPE, SIG_IGN);
     struct sockaddr_in server_address = get_server_address(host, port, useIPv4, useIPv6);
 
     pollfd fds[2]; // The first socket is the server socket and the second is the standard input.

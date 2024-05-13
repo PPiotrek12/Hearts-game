@@ -18,7 +18,7 @@
 using namespace std;
 
 // Logic of the game.
-Trick play_a_card(shared_ptr<Game> game, Trick trick) { // TODO: implement it better.
+Trick play_a_card(shared_ptr<Game_stage_client> game, Trick trick) { // TODO: implement it better.
     if (game->is_auto_playes) {
         Trick res;
         res.trick_number = trick.trick_number;

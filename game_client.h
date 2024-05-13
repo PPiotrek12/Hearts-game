@@ -24,10 +24,11 @@ struct Game {
     bool receive_previous_taken = false;
     bool in_deal = false, in_trick = false;
     bool game_over = false;
-    bool is_auto_playes = false, waiting_for_user_move = false;
+    bool is_auto_playes = false;
     int act_trick_number = 0;
     int socket_fd;
     Deal act_deal;
+    Trick act_trick;
     vector <Taken> all_taken;
 
     void add_taken(Taken taken) {

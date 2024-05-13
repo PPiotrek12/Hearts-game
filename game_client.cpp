@@ -41,3 +41,7 @@ Trick play_a_card(shared_ptr<Game> game, Trick trick) { // TODO: implement it be
     res.cards.push_back(Card(input.substr(1, input.size() - 1)));
     return res;
 }
+
+// TODO: co w przypadku gdy jestesmy zawieszeni na cin, a serwer wysyla nam
+// wiadomosc - czy mamy ja pozniej odebrac i moze sie okazac ze byla (jest) poprawna? - 
+// - tak na prawde pytanie czy czekanie na karte w osobnym cin jest poprawne.

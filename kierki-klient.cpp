@@ -77,17 +77,23 @@ void process_trick_message(shared_ptr<Game> game, Trick trick) {
 
     if (!game->is_auto_playes) cout << trick.describe(game->act_deal.cards);
     game->in_trick = true;
+    game->act_trick = trick;
     game->act_trick_number = trick.trick_number;
     game->receive_previous_taken = false;
 
-    message move = {.trick = play_a_card(game, trick), .is_trick = true};
+    message move = {.trick = play_a_card(game, game->act_trick), .is_trick = true};
     send_message(game->socket_fd, move);
     game->remove_card(move.trick.cards);
 }
 
 void process_wrong_message(shared_ptr<Game> game, Wrong wrong) {
-    if (!game->in_deal || game->in_trick) return;
+    if (!game->in_deal || !game->in_trick) return;
+    if (wrong.trick_number != game->act_trick_number) return;
     if (!game->is_auto_playes) cout << wrong.describe();
+
+    message move = {.trick = play_a_card(game, game->act_trick), .is_trick = true};
+    send_message(game->socket_fd, move);
+    game->remove_card(move.trick.cards);
 }
 
 void process_taken_message(shared_ptr<Game> game, Taken taken) {
@@ -119,7 +125,7 @@ void process_total_message(shared_ptr<Game> game, Score total) {
     game->game_over = true;
 }
 
-void main_game_loop(pollfd *fds, bool is_auto, char seat) {
+void main_client_loop(pollfd *fds, bool is_auto, char seat) {
     shared_ptr<Game> game = make_shared<Game>();
     game->is_auto_playes = is_auto;
     game->socket_fd = fds[0].fd;
@@ -180,6 +186,6 @@ int main(int argc, char* argv[]) {
     if (connect(fds[0].fd, (struct sockaddr *)&server_address, (socklen_t)sizeof(server_address))<0)
         syserr("connect");
 
-    main_game_loop(fds, is_auto, seat);
+    main_client_loop(fds, is_auto, seat);
     return 0;
 }

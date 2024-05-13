@@ -9,7 +9,7 @@
 using namespace std;
 
 struct Card {
-    string color;
+    char color;
     int value;
     Card(string mess) {
         if (mess[0] == '1') value = 10;
@@ -22,10 +22,10 @@ struct Card {
     }
     static bool is_card_correct(string mess) {
         if (mess.size() == 2) {
-            if (((mess[0] >= '2' && mess[0] <= '9') || 
-                    mess[0] == 'J' || mess[0] == 'Q' || mess[0] == 'K' || mess[0] == 'A') &&
-                    (mess[1] == 'S' || mess[1] == 'H' || mess[1] == 'D' || mess[1] == 'C'))
-                return true;
+            if ((mess[0] >= '2' && mess[0] <= '9') 
+                    ||  mess[0] == 'J' || mess[0] == 'Q' || mess[0] == 'K' || mess[0] == 'A')
+                if (mess[1] == 'S' || mess[1] == 'H' || mess[1] == 'D' || mess[1] == 'C')
+                    return true;
         } else if (mess.size() == 3) {
             if (mess[0] == '1' && mess[1] == '0' &&
                     (mess[2] == 'S' || mess[2] == 'H' || mess[2] == 'D' || mess[2] == 'C'))
@@ -40,8 +40,8 @@ struct Card {
         else if (value == 12) res += "Q";
         else if (value == 13) res += "K";
         else if (value == 14) res += "A";
-        else res += (char)(value + '0');
-        res += color;
+        else res += string(1, value + '0');
+        res += string(1, color);
         return res;
     }
 };

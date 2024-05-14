@@ -2,6 +2,8 @@
 #include <vector>
 #include <string>
 #include <iostream>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 #include "messages.h"
 #include "common.h"
@@ -9,7 +11,49 @@
 
 using namespace std;
 
-message read_message(int fd) {
+string local_address(int fd) {
+    struct sockaddr_storage local_addr;
+    socklen_t addr_len = sizeof(local_addr);
+    if (getsockname(fd, (struct sockaddr *)&local_addr, &addr_len) == -1) syserr("getsockname");
+    char local_ip[INET6_ADDRSTRLEN];
+    uint16_t local_port;
+    if (local_addr.ss_family == AF_INET) {
+        struct sockaddr_in *local_addr_ipv4 = (struct sockaddr_in *)&local_addr;
+        inet_ntop(AF_INET, &(local_addr_ipv4->sin_addr), local_ip, INET_ADDRSTRLEN);
+        local_port = ntohs(local_addr_ipv4->sin_port);
+    } else {
+        struct sockaddr_in6 *local_addr_ipv6 = (struct sockaddr_in6 *)&local_addr;
+        inet_ntop(AF_INET6, &(local_addr_ipv6->sin6_addr), local_ip, INET6_ADDRSTRLEN);
+        local_port = ntohs(local_addr_ipv6->sin6_port);
+    }
+    string res = local_ip;
+    res += ":";
+    res += to_string(local_port);
+    return res;
+}
+
+string peer_address(int fd) {
+    struct sockaddr_storage peer_addr;
+    socklen_t addr_len = sizeof(peer_addr);
+    if (getpeername(fd, (struct sockaddr *)&peer_addr, &addr_len) == -1) syserr("getpeername");
+    char peer_ip[INET6_ADDRSTRLEN];
+    uint16_t peer_port;
+    if (peer_addr.ss_family == AF_INET) {
+        struct sockaddr_in *peer_addr_ipv4 = (struct sockaddr_in *)&peer_addr;
+        inet_ntop(AF_INET, &(peer_addr_ipv4->sin_addr), peer_ip, INET_ADDRSTRLEN);
+        peer_port = ntohs(peer_addr_ipv4->sin_port);
+    } else {
+        struct sockaddr_in6 *peer_addr_ipv6 = (struct sockaddr_in6 *)&peer_addr;
+        inet_ntop(AF_INET6, &(peer_addr_ipv6->sin6_addr), peer_ip, INET6_ADDRSTRLEN);
+        peer_port = ntohs(peer_addr_ipv6->sin6_port);
+    }
+    string res = peer_ip;
+    res += ":";
+    res += to_string(peer_port);
+    return res;
+}
+
+message read_message(int fd, bool is_auto_player) {
     char act;
     string mess;
     do {
@@ -32,16 +76,20 @@ message read_message(int fd) {
         }
         mess += act;
     } while (act != '\n');
+    if (is_auto_player)
+        cout << "[" << peer_address(fd) << ", " << local_address(fd) << "] " << mess << "\n";
     mess = mess.substr(0, mess.size() - 2);
     message res;
     res.parse(mess);
     return res;
 }
 
-void send_message(int fd, message mess) {
+void send_message(int fd, message mess, bool is_auto_player) {
     string to_send = mess.to_message();
     if (writen(fd, (char*)to_send.c_str(), to_send.size()) < 0)
         syserr("write");
+    if (is_auto_player)
+        cout << "[" << local_address(fd) << ", " << peer_address(fd) << "] " << to_send << "\n";
 }
 
 int seat_to_int(char seat) {

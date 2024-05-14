@@ -19,7 +19,7 @@ using namespace std;
 
 // Logic of the game.
 Trick play_a_card(shared_ptr<Game_stage_client> game, Trick trick) { // TODO: implement it better.
-    if (game->is_auto_playes) {
+    if (game->is_auto_player) {
         Trick res;
         res.trick_number = trick.trick_number;
         res.cards.push_back(game->act_deal.cards.back());

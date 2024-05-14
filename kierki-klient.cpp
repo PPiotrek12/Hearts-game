@@ -18,7 +18,7 @@
 using namespace std;
 
 void parse_arguments(int argc, char* argv[], const char **host, uint16_t *port, bool *useIPv4,
-                     bool *useIPv6, bool *is_auto_playes, char *seat) {
+                     bool *useIPv6, bool *is_auto_player, char *seat) {
 
     bool wasHostSet = false, wasPortSet = false, wasSeatSet = false;
     for (int i = 1; i < argc; i++) {
@@ -46,7 +46,7 @@ void parse_arguments(int argc, char* argv[], const char **host, uint16_t *port, 
             wasSeatSet = true;
             *seat = arg[1];
         }
-        else if (arg == "-a") *is_auto_playes = true;
+        else if (arg == "-a") *is_auto_player = true;
         else fatal("unknown argument");
     }
     if (!wasHostSet) fatal("missing -h argument");
@@ -56,7 +56,7 @@ void parse_arguments(int argc, char* argv[], const char **host, uint16_t *port, 
 
 void process_busy_message(shared_ptr<Game_stage_client> game, Busy busy) {
     if (!game->first_message) return;
-    if (!game->is_auto_playes) cout << busy.describe();
+    if (!game->is_auto_player) cout << busy.describe();
 }
 
 void process_deal_message(shared_ptr<Game_stage_client> game, Deal deal) {
@@ -65,7 +65,7 @@ void process_deal_message(shared_ptr<Game_stage_client> game, Deal deal) {
     if (game->first_message) game->receive_previous_taken = true;
     else game->receive_previous_taken = false;
 
-    if (!game->is_auto_playes) cout << deal.describe();
+    if (!game->is_auto_player) cout << deal.describe();
     game->in_deal = true;
     game->act_deal = deal;
     game->first_message = false;
@@ -76,7 +76,7 @@ void process_trick_message(shared_ptr<Game_stage_client> game, Trick trick) {
     if (!game->in_deal || game->in_trick) return;
     if (trick.trick_number != game->act_trick_number + 1) return;
 
-    if (!game->is_auto_playes) cout << trick.describe(game->act_deal.cards);
+    if (!game->is_auto_player) cout << trick.describe(game->act_deal.cards);
     game->in_trick = true;
     game->act_trick = trick;
     game->act_trick_number = trick.trick_number;
@@ -88,11 +88,11 @@ void process_trick_message(shared_ptr<Game_stage_client> game, Trick trick) {
 void process_wrong_message(shared_ptr<Game_stage_client> game, Wrong wrong) {
     if (!game->in_deal || !game->in_trick) return;
     if (wrong.trick_number != game->act_trick_number) return;
-    if (!game->is_auto_playes) cout << wrong.describe();
+    if (!game->is_auto_player) cout << wrong.describe();
+    if (game->waiting_for_card) return;
 
-    message move = {.trick = play_a_card(game, game->act_trick), .is_trick = true};
-    send_message(game->socket_fd, move);
-    game->remove_card(move.trick.cards);
+    game->waiting_for_card = true;
+    game->ask_for_a_card();
 }
 
 void process_taken_message(shared_ptr<Game_stage_client> game, Taken taken) {
@@ -103,7 +103,7 @@ void process_taken_message(shared_ptr<Game_stage_client> game, Taken taken) {
     if (!game->in_trick && taken.trick_number != game->act_trick_number + 1) return;
     if(game->waiting_for_card) return;
 
-    if (!game->is_auto_playes) cout << taken.describe();
+    if (!game->is_auto_player) cout << taken.describe();
     game->act_trick_number = taken.trick_number;
     game->in_trick = false;
     game->all_taken.push_back(taken);
@@ -114,7 +114,7 @@ void process_taken_message(shared_ptr<Game_stage_client> game, Taken taken) {
 void process_score_message(shared_ptr<Game_stage_client> game, Score score) {
     if (!game->in_deal || game->in_trick) return;
 
-    if (!game->is_auto_playes) cout << score.describe();
+    if (!game->is_auto_player) cout << score.describe();
     game->all_taken.clear();
     game->in_deal = false;
 }
@@ -122,12 +122,12 @@ void process_score_message(shared_ptr<Game_stage_client> game, Score score) {
 void process_total_message(shared_ptr<Game_stage_client> game, Score total) {
     if (game->in_deal || game->in_trick) return;
 
-    if (!game->is_auto_playes) cout << total.describe();
+    if (!game->is_auto_player) cout << total.describe();
     game->game_over = true;
 }
 
 void receive_server_message(shared_ptr<Game_stage_client> game, pollfd *fds) {
-    message mess = read_message(fds[0].fd);
+    message mess = read_message(fds[0].fd, game->is_auto_player);
     if (mess.closed_connection) {
         if (game->game_over) exit(0);
         else exit(1);
@@ -152,7 +152,7 @@ void receive_user_message(shared_ptr<Game_stage_client> game) {
         vector <Card> choice = {Card(input.substr(1, input.size() - 1))};
         Trick response = Trick{.trick_number = game->act_trick_number, .cards = choice};
         message move = {.trick = response, .is_trick = true};
-        send_message(game->socket_fd, move);
+        send_message(game->socket_fd, move, game->is_auto_player);
         game->remove_card(move.trick.cards);
         game->waiting_for_card = false;
     }
@@ -165,11 +165,11 @@ void receive_user_message(shared_ptr<Game_stage_client> game) {
 
 void main_client_loop(pollfd *fds, bool is_auto, char seat) {
     shared_ptr<Game_stage_client> game = make_shared<Game_stage_client>();
-    game->is_auto_playes = is_auto;
+    game->is_auto_player = is_auto;
     game->socket_fd = fds[0].fd;
 
     message iam = {.iam = {.player = seat}, .is_iam = true};
-    send_message(fds[0].fd, iam);
+    send_message(fds[0].fd, iam, game->is_auto_player);
 
     int fds_nr = 2;
     if (is_auto) fds_nr = 1;

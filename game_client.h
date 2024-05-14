@@ -25,7 +25,7 @@ struct Game_stage_client {
     bool receive_previous_taken = false;
     bool in_deal = false, in_trick = false;
     bool game_over = false;
-    bool is_auto_playes = false;
+    bool is_auto_player = false;
     bool waiting_for_card = false;
     int act_trick_number = 0;
     int socket_fd;

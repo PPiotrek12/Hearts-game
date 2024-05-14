@@ -333,8 +333,8 @@ struct message {
     }
 };
 
-message read_message(int fd);
-void send_message(int fd, message mess);
+message read_message(int fd, bool is_auto_player = false);
+void send_message(int fd, message mess, bool is_auto_player = false);
 int seat_to_int(char seat);
 char int_to_seat(int seat);
 

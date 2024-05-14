@@ -81,18 +81,24 @@ void process_trick_message(shared_ptr<Game_stage_client> game, Trick trick) {
     game->act_trick = trick;
     game->act_trick_number = trick.trick_number;
     game->receive_previous_taken = false;
-    game->waiting_for_card = true;
-    game->ask_for_a_card();
+    if (!game->is_auto_player) {
+        game->waiting_for_card = true;
+        game->ask_for_a_card();
+    }
+    else {
+        Trick response = play_a_card(game, trick);
+        message move = {.trick = response, .is_trick = true};
+        send_message(game->socket_fd, move, game->is_auto_player);
+        game->remove_card(move.trick.cards);
+    }
 }
 
 void process_wrong_message(shared_ptr<Game_stage_client> game, Wrong wrong) {
     if (!game->in_deal || !game->in_trick) return;
     if (wrong.trick_number != game->act_trick_number) return;
-    if (!game->is_auto_player) cout << wrong.describe();
     if (game->waiting_for_card) return;
 
-    game->waiting_for_card = true;
-    game->ask_for_a_card();
+    if (!game->is_auto_player) cout << wrong.describe();
 }
 
 void process_taken_message(shared_ptr<Game_stage_client> game, Taken taken) {

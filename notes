@@ -1,5 +1,3 @@
------ 6. Kiedy mamy wypisywać raport z rozgrywki? (Po każdej wiadomości czy może na sam koniec?) ---- PO KAŻDEJ WIADOMOŚCI
-
 ?????? 12. Jak dokładnie powinien wyglądać format z rozgrywki? Tzn. czy ostatnie \r\n powinno być traktowane jako częśc stringa, a nie jako znaki specjalne i w terminalu na końcu każdej linii powinniśmy zobaczyć \r\n? ---- BĘDZIE DZIŚ NA FORUM
 
 
@@ -23,3 +21,7 @@
  - jeśli gra się jeszcze nie toczy, to serwer zawiesza się na read() (z timeoutem jak w argumencie) czekając na pierwszą wiadomość? ----- NIE
 
 ----- 11. Czy serwer może się zawiesić na read() (jw. z timeoutem) oczekując na TRICK od klienta? ----- NIE MOŻE!!
+
+
+
+13. Jak serwer postepuje po wyslaniu WRONG?

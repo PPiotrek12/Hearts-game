@@ -103,7 +103,6 @@ void main_server_loop(pollfd *fds, Game_scenario game_scenario, int timeout) {
             }
             cout << "New client connected.\n";
         }
-        cout<<fds[5].revents<<"\n";
         for (int i = 5; i < MAX_CLIENTS; i++) { // Not playing clients.
             if (fds[i].revents & (POLLIN | POLLERR)) { 
                 // Try to join client to the game.

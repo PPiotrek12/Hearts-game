@@ -78,8 +78,9 @@ message read_message(int fd, bool is_auto_player) {
     } while (act != '\n');
     if (is_auto_player)
         cout << "[" << peer_address(fd) << ", " << local_address(fd) << "] " << mess << "\n";
-    mess = mess.substr(0, mess.size() - 2);
     message res;
+    if (mess.size() < 3) return res; // Too short message.
+    mess = mess.substr(0, mess.size() - 2);
     res.parse(mess);
     return res;
 }

@@ -24,4 +24,14 @@
 
 
 
-13. Jak serwer postepuje po wyslaniu WRONG?
+1. Jak serwer postepuje po wyslaniu WRONG?
+
+2. Czy uzywanie cinow i coutow jest bezpieczne?
+
+3. Czy można czytać po jednym znaku?
+
+4. Czy jak klient sie rozlaczy to po podlaczeniu nowego klienta, timeout na klientach grajacych byl wstrzymywany na czas podlaczenia nowego klienta?
+
+5. Czy klinet ma odpowiadac na wiele TRICK?
+
+6. 

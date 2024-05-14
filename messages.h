@@ -294,28 +294,28 @@ struct message {
     bool is_iam = false, is_busy = false, is_deal = false, is_trick = false;
     bool is_wrong = false, is_taken = false, is_score = false, is_total = false;
     void parse(string mess) {
-        if (mess.substr(0, 3) == "IAM") {
+        if (mess.size() >= 3 && mess.substr(0, 3) == "IAM") {
             iam.parse(mess.substr(3, mess.size() - 3));
             is_iam = true;
-        } else if (mess.substr(0, 4) == "BUSY") {
+        } else if (mess.size() >= 4 && mess.substr(0, 4) == "BUSY") {
             busy.parse(mess.substr(4, mess.size() - 4));
             is_busy = true;
-        } else if (mess.substr(0, 4) == "DEAL") {
+        } else if (mess.size() >= 4 && mess.substr(0, 4) == "DEAL") {
             deal.parse(mess.substr(4, mess.size() - 4));
             is_deal = true;
-        } else if (mess.substr(0, 5) == "TRICK") {
+        } else if (mess.size() >= 5 && mess.substr(0, 5) == "TRICK") {
             trick.parse(mess.substr(5, mess.size() - 5));
             is_trick = true;
-        } else if (mess.substr(0, 5) == "WRONG") {
+        } else if (mess.size() >= 5 && mess.substr(0, 5) == "WRONG") {
             wrong.parse(mess.substr(5, mess.size() - 5));
             is_wrong = true;
-        } else if (mess.substr(0, 5) == "TAKEN") {
+        } else if (mess.size() >= 5 && mess.substr(0, 5) == "TAKEN") {
             taken.parse(mess.substr(5, mess.size() - 5));
             is_taken = true;
-        } else if (mess.substr(0, 5) == "SCORE") {
+        } else if (mess.size() >= 5 && mess.substr(0, 5) == "SCORE") {
             score.parse(mess.substr(5, mess.size() - 5), false);
             is_score = true;
-        } else if (mess.substr(0, 5) == "TOTAL") {
+        } else if (mess.size() >= 5 && mess.substr(0, 5) == "TOTAL") {
             total.parse(mess.substr(5, mess.size() - 5), true);
             is_total = true;
         }

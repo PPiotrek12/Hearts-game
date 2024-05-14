@@ -170,7 +170,7 @@ void main_client_loop(pollfd *fds, bool is_auto, char seat) {
 
     message iam = {.iam = {.player = seat}, .is_iam = true};
     send_message(fds[0].fd, iam);
-    
+
     int fds_nr = 2;
     if (is_auto) fds_nr = 1;
 
@@ -194,17 +194,29 @@ int main(int argc, char* argv[]) {
     char seat;
     parse_arguments(argc, argv, &host, &port, &useIPv4, &useIPv6, &is_auto, &seat);
 
-    struct sockaddr_in server_address = get_server_address(host, port, useIPv4, useIPv6);
+    sockaddr_in address4;
+    sockaddr_in6 address6;
+    int res = get_server_address(host, port, useIPv4, useIPv6, &address4, &address6);
+    int socket_fd = 0;
+    if (res == AF_INET6) {
+        socket_fd = socket(AF_INET6, SOCK_STREAM, 0);
+        if (socket_fd == -1) syserr("socket");
+        if (connect(socket_fd, (struct sockaddr *)&address6, (socklen_t)sizeof(address6)) < 0)
+            syserr("connect");
+    }
+    else {
+        socket_fd = socket(AF_INET, SOCK_STREAM, 0);
+        if (socket_fd == -1) syserr("socket");
+        if (connect(socket_fd, (struct sockaddr *)&address4, (socklen_t)sizeof(address4)) < 0)
+            syserr("connect");
+    }
 
     pollfd fds[2]; // The first socket is the server socket and the second is the standard input.
-    fds[0].fd = socket(server_address.sin_family, SOCK_STREAM, 0); 
+    fds[0].fd = socket_fd;
     if (fds[0].fd == -1) syserr("socket");
     fds[0].events = POLLIN;
     fds[1].fd = STDIN_FILENO;
     fds[1].events = POLLIN;
-
-    if (connect(fds[0].fd, (struct sockaddr *)&server_address, (socklen_t)sizeof(server_address))<0)
-        syserr("connect");
 
     main_client_loop(fds, is_auto, seat);
     return 0;

@@ -59,10 +59,11 @@ uint16_t read_port(char const *string) {
     return (uint16_t) port;
 }
 
-struct sockaddr_in get_server_address(char const *host, uint16_t port, bool useIPv4, bool useIPv6) {
-    struct addrinfo hints;
+int get_server_address(char const *host, uint16_t port, bool useIPv4, bool useIPv6,
+                            sockaddr_in *address4, sockaddr_in6 *address6) {
+    addrinfo hints;
     memset(&hints, 0, sizeof(struct addrinfo));
-    if (useIPv4) // TODO: what if both useIPv4 and useIPv6 are true?
+    if (useIPv4)
         hints.ai_family = AF_INET; // IPv4
     else if (useIPv6)
         hints.ai_family = AF_INET6; // IPv6
@@ -71,14 +72,20 @@ struct sockaddr_in get_server_address(char const *host, uint16_t port, bool useI
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_protocol = IPPROTO_TCP;
 
-    struct addrinfo *res;
+    addrinfo *res;
     int errcode = getaddrinfo(host, NULL, &hints, &res);
     if (errcode != 0)
         fatal("getaddrinfo: %s", gai_strerror(errcode));
-    struct sockaddr_in send_address;
-    send_address.sin_family = res->ai_family;
-    send_address.sin_addr.s_addr =  ((struct sockaddr_in *) (res->ai_addr))->sin_addr.s_addr;
-    send_address.sin_port = htons(port);
+    if (res->ai_family == AF_INET6) { // TODO: nie dziala laczenie sie do ipv6 gdy nie ma ustawionego ani useipv4 ani useipv6
+        address6->sin6_family = AF_INET6;
+        address6->sin6_addr = ((struct sockaddr_in6 *) (res->ai_addr))->sin6_addr;
+        address6->sin6_port = htons(port);
+        freeaddrinfo(res);
+        return AF_INET6;
+    }
+    address4->sin_family = AF_INET;
+    address4->sin_addr.s_addr = ((struct sockaddr_in *) (res->ai_addr))->sin_addr.s_addr;
+    address4->sin_port = htons(port);
     freeaddrinfo(res);
-    return send_address;
+    return AF_INET;
 }

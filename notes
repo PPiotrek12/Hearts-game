@@ -23,5 +23,3 @@
  - jeśli gra się jeszcze nie toczy, to serwer zawiesza się na read() (z timeoutem jak w argumencie) czekając na pierwszą wiadomość? ----- NIE
 
 ----- 11. Czy serwer może się zawiesić na read() (jw. z timeoutem) oczekując na TRICK od klienta? ----- NIE MOŻE!!
-
-13. Co w przypadku gdy jestesmy zawieszeni na cin, a serwer wysyla nam wiadomosc - czy mamy ja pozniej odebrac i moze sie okazac ze byla (jest) poprawna? - tak na prawde pytanie czy czekanie na karte w osobnym cin jest poprawne.

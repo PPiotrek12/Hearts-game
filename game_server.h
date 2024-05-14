@@ -28,9 +28,8 @@ struct Deal_server {
     int points[4] = {0, 0, 0, 0};
     Deal deals[4];
     void parse(string header, string list1, string list2, string list3, string list4) {
-        map <char, int> seat_to_int = {{'N', 0}, {'E', 1}, {'S', 2}, {'W', 3}};
         deal_type = header[0] - '0';
-        first_player = seat_to_int[header[1]];
+        first_player = seat_to_int(header[1]);
         deals[0].parse(header + list1);
         deals[1].parse(header + list2);
         deals[2].parse(header + list3);
@@ -46,6 +45,16 @@ struct Game_stage_server {
     Deal_server act_deal;
     Trick_server act_trick;
     vector <Taken> all_taken;
+
+    void send_busy(int fd) {
+        Busy busy;
+        vector <char> seats;
+        for (int i = 0; i < 4; i++)
+            if (occupied[i]) seats.push_back(int_to_seat(i));
+        busy.players = seats;
+        message mess = {.busy = busy, .is_busy = true};
+        send_message(fd, mess);
+    }
 };
 
 // Struct representing all deals in the game read from the file.

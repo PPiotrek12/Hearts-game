@@ -1,0 +1,27 @@
+----- 6. Kiedy mamy wypisywać raport z rozgrywki? (Po każdej wiadomości czy może na sam koniec?) ---- PO KAŻDEJ WIADOMOŚCI
+
+?????? 12. Jak dokładnie powinien wyglądać format z rozgrywki? Tzn. czy ostatnie \r\n powinno być traktowane jako częśc stringa, a nie jako znaki specjalne i w terminalu na końcu każdej linii powinniśmy zobaczyć \r\n? ---- BĘDZIE DZIŚ NA FORUM
+
+
+
+
+
+----- 3. Co oznacza obowiązek dokładania do koloru? (do koloru pierwszej wyłożonej karty? - jeśli tak, to skąd klient ma wiedzieć, która to była, skoro nie ma obowiązku podawania kart w dobrej kolejności w wiadomości TRICK?)  ----- SERWER PODAJE KARTY W KOLEJNOŚCI DOKŁADANIA
+
+
+
+
+----1. Co mamy rozumieć przez to, że serwer jest uczciwy?
+   - Tylko to, że jest uczciwym 'sędzią gry', czyli dobrze wybierze klienta, który ma zebrać lewę i np. w DEAL poda poprawne karty?
+   - Czy dodatkowo to, że będzie wysyłał poprawne komunikaty z dobrymi parametrami itd.?
+   -------  Jeśli serwer przysyła komunikaty których nie powinien to klient może zachowywać się niepoprawnie (mieć złą wiedzę o stanie gry itp. albo i zakończyć się). Natomiast nie powinien mieć segfaultów, wycieków pamięci itp.
+
+2. Czy wypisujemy błędy w komunikacji?
+
+----- 10. Czy podczas dołączenia się nowego klienta do serwera takie zachowania są akceptowalne:
+ - jeśli toczy się gra z udziałem 4 klientów, to serwer nie czekając na pierwszy komunikat od nowego gościa, wysyła mu BUSY i zamyka połączenie? ---- NIE
+ - jeśli gra się jeszcze nie toczy, to serwer zawiesza się na read() (z timeoutem jak w argumencie) czekając na pierwszą wiadomość? ----- NIE
+
+----- 11. Czy serwer może się zawiesić na read() (jw. z timeoutem) oczekując na TRICK od klienta? ----- NIE MOŻE!!
+
+13. Co w przypadku gdy jestesmy zawieszeni na cin, a serwer wysyla nam wiadomosc - czy mamy ja pozniej odebrac i moze sie okazac ze byla (jest) poprawna? - tak na prawde pytanie czy czekanie na karte w osobnym cin jest poprawne.

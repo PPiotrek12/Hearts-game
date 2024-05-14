@@ -39,8 +39,9 @@ void parse_arguments(int argc, char* argv[], const char **host, uint16_t *port, 
                 i++;
             }
         }
-        else if (arg == "-4") *useIPv4 = true;
-        else if (arg == "-6") *useIPv6 = true;
+        // Accept only first -4 or -6.
+        else if (arg == "-4" && !(*useIPv4) && !(*useIPv6)) *useIPv4 = true;
+        else if (arg == "-6" && !(*useIPv4) && !(*useIPv6)) *useIPv6 = true;
         else if (arg == "-N" || arg == "-E" || arg == "-S" || arg == "-W") {
             wasSeatSet = true;
             *seat = arg[1];
@@ -80,10 +81,8 @@ void process_trick_message(shared_ptr<Game_stage_client> game, Trick trick) {
     game->act_trick = trick;
     game->act_trick_number = trick.trick_number;
     game->receive_previous_taken = false;
-
-    message move = {.trick = play_a_card(game, game->act_trick), .is_trick = true};
-    send_message(game->socket_fd, move);
-    game->remove_card(move.trick.cards);
+    game->waiting_for_card = true;
+    game->ask_for_a_card();
 }
 
 void process_wrong_message(shared_ptr<Game_stage_client> game, Wrong wrong) {
@@ -102,6 +101,7 @@ void process_taken_message(shared_ptr<Game_stage_client> game, Taken taken) {
     if (game->in_trick && taken.trick_number != game->act_trick_number) return;
     // Check if taken is after last taken (if not in trick).
     if (!game->in_trick && taken.trick_number != game->act_trick_number + 1) return;
+    if(game->waiting_for_card) return;
 
     if (!game->is_auto_playes) cout << taken.describe();
     game->act_trick_number = taken.trick_number;
@@ -115,7 +115,7 @@ void process_score_message(shared_ptr<Game_stage_client> game, Score score) {
     if (!game->in_deal || game->in_trick) return;
 
     if (!game->is_auto_playes) cout << score.describe();
-    game->all_taken.clear(); // TODO: czy to jest poprawne?
+    game->all_taken.clear();
     game->in_deal = false;
 }
 
@@ -124,6 +124,43 @@ void process_total_message(shared_ptr<Game_stage_client> game, Score total) {
 
     if (!game->is_auto_playes) cout << total.describe();
     game->game_over = true;
+}
+
+void receive_server_message(shared_ptr<Game_stage_client> game, pollfd *fds) {
+    message mess = read_message(fds[0].fd);
+    if (mess.closed_connection) {
+        if (game->game_over) exit(0);
+        else exit(1);
+    }
+    if (mess.is_busy) process_busy_message(game, mess.busy);
+    if (mess.is_deal) process_deal_message(game, mess.deal);
+    if (mess.is_trick) process_trick_message(game, mess.trick);
+    if (mess.is_wrong) process_wrong_message(game, mess.wrong);
+    if (mess.is_taken) process_taken_message(game, mess.taken);
+    if (mess.is_score) process_score_message(game, mess.score);
+    if (mess.is_total) process_total_message(game, mess.total);
+}
+
+void receive_user_message(shared_ptr<Game_stage_client> game) {
+    string input;
+    getline(cin, input);
+    if (input.empty()) return; // Ignore empty lines.
+    if (input == "cards") game->print_avaible_cards(); // Print avaible cards.
+    else if (input == "tricks") game->print_all_tricks(); // Print all tricks.
+    else if (game->waiting_for_card && input[0] == '!' && 
+            Card::is_card_correct(input.substr(1, input.size() - 1))) { // Play a card.
+        vector <Card> choice = {Card(input.substr(1, input.size() - 1))};
+        Trick response = Trick{.trick_number = game->act_trick_number, .cards = choice};
+        message move = {.trick = response, .is_trick = true};
+        send_message(game->socket_fd, move);
+        game->remove_card(move.trick.cards);
+        game->waiting_for_card = false;
+    }
+    else {
+        cout << "Wrong command.\n";
+        if (game->waiting_for_card) game->ask_for_a_card();
+    }
+
 }
 
 void main_client_loop(pollfd *fds, bool is_auto, char seat) {
@@ -142,28 +179,10 @@ void main_client_loop(pollfd *fds, bool is_auto, char seat) {
         int poll_status = poll(fds, fds_nr, -1);
         if (poll_status < 0) syserr("poll");
         if (poll_status == 0) continue;
-        if (fds[0].revents & POLLIN) { // Server message.
-            message mess = read_message(fds[0].fd);
-            if (mess.closed_connection) {
-                if (game->game_over) exit(0);
-                else exit(1);
-            }
-            if (mess.is_busy) process_busy_message(game, mess.busy);
-            if (mess.is_deal) process_deal_message(game, mess.deal);
-            if (mess.is_trick) process_trick_message(game, mess.trick);
-            if (mess.is_wrong) process_wrong_message(game, mess.wrong);
-            if (mess.is_taken) process_taken_message(game, mess.taken);
-            if (mess.is_score) process_score_message(game, mess.score);
-            if (mess.is_total) process_total_message(game, mess.total);
-        }
-        if (!is_auto && (fds[1].revents & POLLIN)) { // User input.
-            string input;
-            getline(cin, input);
-            if (input.empty()) continue;
-            if (input == "cards") game->print_avaible_cards();
-            else if (input == "tricks") game->print_all_tricks();
-            else cout << "Wrong command.\n";
-        }
+        if (fds[0].revents & (POLLIN | POLLERR)) // Server message.
+            receive_server_message(game, fds);
+        if (!is_auto && (fds[1].revents & POLLIN)) // User input.
+            receive_user_message(game);
     }
 }
 

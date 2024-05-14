@@ -26,6 +26,7 @@ struct Game_stage_client {
     bool in_deal = false, in_trick = false;
     bool game_over = false;
     bool is_auto_playes = false;
+    bool waiting_for_card = false;
     int act_trick_number = 0;
     int socket_fd;
     Deal act_deal;
@@ -43,6 +44,12 @@ struct Game_stage_client {
             }
         }
     }
+
+    void ask_for_a_card() {
+        cout << "Waiting for your card choice (format: '!' + card code); " <<
+                "you still can type 'tricks'/'cards' command:\n";
+    }
+
     void print_all_tricks() {
         for (int i = 0; i < (int)all_taken.size(); i++) {
             for (int j = 0; j < (int)all_taken[i].cards.size(); j++) {
@@ -51,13 +58,16 @@ struct Game_stage_client {
             }
             cout << "\n";
         }
+        if (waiting_for_card) ask_for_a_card();
     }
+
     void print_avaible_cards() {
         for (int i = 0; i < (int)act_deal.cards.size(); i++) {
             cout << act_deal.cards[i].to_str();
             if (i + 1 < (int)act_deal.cards.size()) cout << ", ";
         }
         cout << "\n";
+        if (waiting_for_card) ask_for_a_card();
     }
 };
 

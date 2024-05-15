@@ -15,6 +15,12 @@
 #include "err.h"
 #include "game_client.h"
 
+#define wrong_msg                                  \
+    do {                                            \
+        err("wrong message from server - ignoring");\
+        return;                                     \
+    } while(0)
+
 using namespace std;
 
 void parse_arguments(int argc, char* argv[], const char **host, uint16_t *port, bool *useIPv4,
@@ -55,13 +61,13 @@ void parse_arguments(int argc, char* argv[], const char **host, uint16_t *port, 
 }
 
 void process_busy_message(shared_ptr<Game_stage_client> game, Busy busy) {
-    if (!game->first_message) return;
+    if (!game->first_message) wrong_msg;
     if (!game->is_auto_player) cout << busy.describe();
 }
 
 void process_deal_message(shared_ptr<Game_stage_client> game, Deal deal) {
-    if (game->in_deal) return;
-
+    if (game->in_deal) wrong_msg;
+    
     if (game->first_message) game->receive_previous_taken = true;
     else game->receive_previous_taken = false;
 
@@ -73,19 +79,19 @@ void process_deal_message(shared_ptr<Game_stage_client> game, Deal deal) {
 }
 
 void process_trick_message(shared_ptr<Game_stage_client> game, Trick trick) {
-    if (!game->in_deal || game->in_trick) return;
-    if (trick.trick_number != game->act_trick_number + 1) return;
+    if (!game->in_deal || game->in_trick) wrong_msg;
+    if (trick.trick_number != game->act_trick_number + 1) wrong_msg;
 
     if (!game->is_auto_player) cout << trick.describe(game->act_deal.cards);
     game->in_trick = true;
     game->act_trick = trick;
     game->act_trick_number = trick.trick_number;
     game->receive_previous_taken = false;
-    if (!game->is_auto_player) {
+    if (!game->is_auto_player) { // User player.
         game->waiting_for_card = true;
         game->ask_for_a_card();
     }
-    else {
+    else { // Auto player.
         Trick response = play_a_card(game, trick);
         message move = {.trick = response, .is_trick = true};
         send_message(game->socket_fd, move, game->is_auto_player);
@@ -94,20 +100,21 @@ void process_trick_message(shared_ptr<Game_stage_client> game, Trick trick) {
 }
 
 void process_wrong_message(shared_ptr<Game_stage_client> game, Wrong wrong) {
-    if (!game->in_deal || !game->in_trick) return;
-    if (wrong.trick_number != game->act_trick_number) return;
-    if (game->waiting_for_card) return;
+    if (!game->in_deal || !game->in_trick) wrong_msg;
+    if (wrong.trick_number != game->act_trick_number) wrong_msg;
+    if (game->waiting_for_card) wrong_msg;
 
     if (!game->is_auto_player) cout << wrong.describe();
 }
 
 void process_taken_message(shared_ptr<Game_stage_client> game, Taken taken) {
-    if (!game->in_deal || (!game->in_trick && !game->receive_previous_taken)) return;
+    if (!game->in_deal) wrong_msg;
+    if (!game->in_trick && !game->receive_previous_taken) wrong_msg;
     // Check if taken is from the current trick.
-    if (game->in_trick && taken.trick_number != game->act_trick_number) return;
+    if (game->in_trick && taken.trick_number != game->act_trick_number) wrong_msg;
     // Check if taken is after last taken (if not in trick).
-    if (!game->in_trick && taken.trick_number != game->act_trick_number + 1) return;
-    if(game->waiting_for_card) return;
+    if (!game->in_trick && taken.trick_number != game->act_trick_number + 1) wrong_msg;
+    if(game->waiting_for_card) wrong_msg;
 
     if (!game->is_auto_player) cout << taken.describe();
     game->act_trick_number = taken.trick_number;
@@ -118,7 +125,7 @@ void process_taken_message(shared_ptr<Game_stage_client> game, Taken taken) {
 }
 
 void process_score_message(shared_ptr<Game_stage_client> game, Score score) {
-    if (!game->in_deal || game->in_trick) return;
+    if (!game->in_deal || game->in_trick) wrong_msg;
 
     if (!game->is_auto_player) cout << score.describe();
     game->all_taken.clear();
@@ -126,7 +133,7 @@ void process_score_message(shared_ptr<Game_stage_client> game, Score score) {
 }
 
 void process_total_message(shared_ptr<Game_stage_client> game, Score total) {
-    if (game->in_deal || game->in_trick) return;
+    if (game->in_deal || game->in_trick) wrong_msg;
 
     if (!game->is_auto_player) cout << total.describe();
     game->game_over = true;

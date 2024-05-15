@@ -79,8 +79,8 @@ void process_deal_message(shared_ptr<Game_stage_client> game, Deal deal) {
 }
 
 void process_trick_message(shared_ptr<Game_stage_client> game, Trick trick) {
-    if (!game->in_deal || game->in_trick) wrong_msg;
-    if (trick.trick_number != game->act_trick_number + 1) wrong_msg;
+    if (!game->in_deal) wrong_msg;
+    if (!game->in_trick && trick.trick_number != game->act_trick_number + 1) wrong_msg;
 
     if (!game->is_auto_player) cout << trick.describe(game->act_deal.cards);
     game->in_trick = true;
@@ -105,6 +105,8 @@ void process_wrong_message(shared_ptr<Game_stage_client> game, Wrong wrong) {
     if (game->waiting_for_card) wrong_msg;
 
     if (!game->is_auto_player) cout << wrong.describe();
+    game->waiting_for_card = true;
+    game->ask_for_a_card();
 }
 
 void process_taken_message(shared_ptr<Game_stage_client> game, Taken taken) {
@@ -173,7 +175,6 @@ void receive_user_message(shared_ptr<Game_stage_client> game) {
         cout << "Wrong command.\n";
         if (game->waiting_for_card) game->ask_for_a_card();
     }
-
 }
 
 void main_client_loop(pollfd *fds, bool is_auto, char seat) {

@@ -20,7 +20,7 @@
 
 1. Jak serwer postepuje po wyslaniu WRONG? (prosi po raz kolejny o TRICK? konczy gre?) ---- serwer ignoruje błędną wiadomość, więc timeout dla tej wiadomości dalej leci.
 
-2. Czy klinet ma odpowiadac na wiele TRICK? (czy zignorować powtarzające się TRICK?) ---- 
+2. Czy klinet ma odpowiadac na wiele TRICK? (czy zignorować powtarzające się TRICK?) ---- no chyba odpowiada raz
 
 2. Co dokładnie oznacza, że serwer wstrzymuje rozgrywkę po rozłączeniu się klienta?
  -> Co się dzieje z wiadomością TRICK od klienta na którą (zapewne) czeka serwer? - Czy możemy ją odczytać czy odrzucamy ją? --- NIE POWINNISMY JEJ NAWET CZYTAC!

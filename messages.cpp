@@ -6,6 +6,8 @@
 #include <arpa/inet.h>
 #include <istream>
 #include <unistd.h>
+#include <chrono>
+#include <ctime>
 
 #include "messages.h"
 #include "common.h"
@@ -13,6 +15,7 @@
 
 using namespace std;
 
+// Function giving the local address of the socket.
 string local_address(int fd) {
     struct sockaddr_storage local_addr;
     socklen_t addr_len = sizeof(local_addr);
@@ -34,6 +37,7 @@ string local_address(int fd) {
     return res;
 }
 
+// Function giving the peer address of the socket.
 string peer_address(int fd) {
     struct sockaddr_storage peer_addr;
     socklen_t addr_len = sizeof(peer_addr);
@@ -55,7 +59,17 @@ string peer_address(int fd) {
     return res;
 }
 
+// Get the current time.
+string get_current_time() {
+    auto now = chrono::system_clock::now();
+    time_t time = chrono::system_clock::to_time_t(now);
+    char buffer[50];
+    strftime(buffer, sizeof(buffer), "%Y-%m-%dT%H:%M:%S.000", localtime(&time));
+    return string(buffer);
+}
+
 const int MAX_SIZE = 1000;
+// Function reading a message from the socket - reads it into the buffer.
 message read_message(int fd, string *buffer, bool is_auto_player) {
     char act[MAX_SIZE];
     int length = read(fd, act, MAX_SIZE);
@@ -65,18 +79,18 @@ message read_message(int fd, string *buffer, bool is_auto_player) {
         return res;
     }
     *buffer += string(act, length);
-
     string mess; // Extract the first message from the buffer - up to the first "\r\n".
     for (int i = 0; i < (int)buffer->size(); i++) {
         if (i + 1 < (int)buffer->size() && (*buffer)[i] == '\r' && (*buffer)[i + 1] == '\n') {
-            mess = buffer->substr(0, i + 2);
+            mess = buffer->substr(0, i);
             *buffer = buffer->substr(i + 2);
             break;
         }
     }
+    string current_time = get_current_time();
     if (is_auto_player)
-        cout << "[" << peer_address(fd) << ", " << local_address(fd) 
-             << "] " << string(act, length) << "\n";
+        cout << "[" << peer_address(fd) << "," << local_address(fd) 
+             << "," << current_time << "] " << string(act, length); // TODO: czy tu nie powinno byc entera?
     message res;
     if (mess.empty()) return res; // There weren't any full messages in the buffer.
     res.parse(mess);
@@ -87,8 +101,10 @@ void send_message(int fd, message mess, bool is_auto_player) {
     string to_send = mess.to_message();
     if (writen(fd, (char*)to_send.c_str(), to_send.size()) < 0)
         syserr("write");
+    string current_time = get_current_time();
     if (is_auto_player)
-        cout << "[" << local_address(fd) << ", " << peer_address(fd) << "] " << to_send << "\n";
+        cout << "[" << local_address(fd) << "," << peer_address(fd) 
+             << "," << current_time << "] " << to_send; // TODO: czy tu nie powinno byc entera?
 }
 
 int seat_to_int(char seat) {

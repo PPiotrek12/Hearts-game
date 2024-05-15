@@ -133,7 +133,7 @@ void process_total_message(shared_ptr<Game_stage_client> game, Score total) {
 }
 
 void receive_server_message(shared_ptr<Game_stage_client> game, pollfd *fds) {
-    message mess = read_message(fds[0].fd, game->is_auto_player);
+    message mess = read_message(fds[0].fd, &(game->buffer_from_server), game->is_auto_player);
     if (mess.closed_connection) {
         if (game->game_over) exit(0);
         else exit(1);

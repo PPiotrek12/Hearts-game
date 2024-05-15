@@ -290,7 +290,6 @@ struct message {
     Taken taken = {};
     Score score = {}, total = {};
     bool closed_connection = false;
-    bool timeout = false;
     bool is_iam = false, is_busy = false, is_deal = false, is_trick = false;
     bool is_wrong = false, is_taken = false, is_score = false, is_total = false;
     void parse(string mess) {
@@ -333,7 +332,7 @@ struct message {
     }
 };
 
-message read_message(int fd, bool is_auto_player = false);
+message read_message(int fd, string *buffer, bool is_auto_player = false);
 void send_message(int fd, message mess, bool is_auto_player = false);
 int seat_to_int(char seat);
 char int_to_seat(int seat);

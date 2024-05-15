@@ -4,6 +4,8 @@
 #include <iostream>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <istream>
+#include <unistd.h>
 
 #include "messages.h"
 #include "common.h"
@@ -53,34 +55,30 @@ string peer_address(int fd) {
     return res;
 }
 
-message read_message(int fd, bool is_auto_player) {
-    char act;
-    string mess;
-    do {
-        int read = readn(fd, &act, 1);
-        if (read < 0) {
-            if (errno == EPIPE) {
-                message res = {.closed_connection = true};
-                return res;
-            }
-            if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                message res = {.timeout = true};
-                return res;
-            }
-            syserr("read");
+const int MAX_SIZE = 1000;
+message read_message(int fd, string *buffer, bool is_auto_player) {
+    char act[MAX_SIZE];
+    int length = read(fd, act, MAX_SIZE);
+    if (length < 0) syserr("read");
+    if (length == 0) { // If read returns 0, it means the connection is closed.
+        message res = {.closed_connection = true};
+        return res;
+    }
+    *buffer += string(act, length);
+
+    string mess; // Extract the first message from the buffer - up to the first "\r\n".
+    for (int i = 0; i < (int)buffer->size(); i++) {
+        if (i + 1 < (int)buffer->size() && (*buffer)[i] == '\r' && (*buffer)[i + 1] == '\n') {
+            mess = buffer->substr(0, i + 2);
+            *buffer = buffer->substr(i + 2);
+            break;
         }
-            
-        if (read == 0) {
-            message res = {.closed_connection = true};
-            return res;
-        }
-        mess += act;
-    } while (act != '\n');
+    }
     if (is_auto_player)
-        cout << "[" << peer_address(fd) << ", " << local_address(fd) << "] " << mess << "\n";
+        cout << "[" << peer_address(fd) << ", " << local_address(fd) 
+             << "] " << string(act, length) << "\n";
     message res;
-    if (mess.size() < 3) return res; // Too short message.
-    mess = mess.substr(0, mess.size() - 2);
+    if (mess.empty()) return res; // There weren't any full messages in the buffer.
     res.parse(mess);
     return res;
 }

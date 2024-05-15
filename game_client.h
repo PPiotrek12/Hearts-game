@@ -32,8 +32,7 @@ struct Game_stage_client {
     Deal act_deal;
     Trick act_trick;
     vector <Taken> all_taken;
-    sockaddr_storage server_address;
-    socklen_t server_address_len = sizeof(server_address);
+    string buffer_from_server;
 
     void remove_card(vector <Card> cards) {
         for (int i = 0; i < (int)(act_deal.cards).size(); i++) {

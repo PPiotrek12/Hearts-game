@@ -132,11 +132,11 @@ void main_server_loop(int socket_fd, Game_scenario game_scenario, int timeout) {
         }
         for (int i = 4; i < (int)listener.clients.size(); i++) {
             if (listener.clients[i].revents & (POLLIN | POLLERR)) { // Client message.
-                message mess = read_message(listener.clients[i].fd);
-                if (mess.closed_connection) {
-                    close(listener.clients[i].fd);
-                    listener.clients.erase(listener.clients.begin() + i);
-                }
+                // message mess = read_message(listener.clients[i].fd);
+                // if (mess.closed_connection) {
+                //     close(listener.clients[i].fd);
+                //     listener.clients.erase(listener.clients.begin() + i);
+                // }
             }
         }
     }

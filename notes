@@ -18,21 +18,21 @@
 
 
 
-1. Jak serwer postepuje po wyslaniu WRONG? (prosi po raz kolejny o TRICK? konczy gre?)
+1. Jak serwer postepuje po wyslaniu WRONG? (prosi po raz kolejny o TRICK? konczy gre?) ---- serwer ignoruje błędną wiadomość, więc timeout dla tej wiadomości dalej leci.
 
-2. Czy klinet ma odpowiadac na wiele TRICK? (czy zignorować powtarzające się TRICK?)
+2. Czy klinet ma odpowiadac na wiele TRICK? (czy zignorować powtarzające się TRICK?) ---- 
 
 2. Co dokładnie oznacza, że serwer wstrzymuje rozgrywkę po rozłączeniu się klienta?
- -> Co się dzieje z wiadomością TRICK od klienta na którą (zapewne) czeka serwer? - Czy możemy ją odczytać czy odrzucamy ją?
+ -> Co się dzieje z wiadomością TRICK od klienta na którą (zapewne) czeka serwer? - Czy możemy ją odczytać czy odrzucamy ją? --- NIE POWINNISMY JEJ NAWET CZYTAC!
  -> Czy po podlaczeniu nowego klienta, timeout na klientach grajacych byl wstrzymywany na czas podlaczenia nowego klienta?
 
-3. Czy wystarczy jedna heurystyka, czy dla każdego typu rozdania należy implementować inną / czy nie ma to wpływu na ocenę?
+3. Czy wystarczy jedna heurystyka, czy dla każdego typu rozdania należy implementować inną / czy nie ma to wpływu na ocenę? --- tak
 
-4. Czy jak serwer rozłączy klienta (bo na przykład wysłał zły komunikat), to wtedy też czekamy na nowego klienta na jego miejsce (czyli tak jakby to klient sam się rozłączył)?
+4. Czy jak serwer rozłączy klienta (bo na przykład wysłał zły komunikat), to wtedy też czekamy na nowego klienta na jego miejsce (czyli tak jakby to klient sam się rozłączył)? ----- tak
 
-5. Czy po dołączeniu się klienta w trakcie trwania rozgrywki, serwer wysyła tylko te TAKEN, które dotyczą aktualnego rozdania? (czy dosłownie wszystkie?)
+5. Czy po dołączeniu się klienta w trakcie trwania rozgrywki, serwer wysyła tylko te TAKEN, które dotyczą aktualnego rozdania? (czy dosłownie wszystkie?) ---- tak
 
 
-6. Czy uzywanie cinow i coutow jest bezpieczne?
-7. Czy można czytać po jednym znaku?
+6. Czy uzywanie cinow i coutow jest bezpieczne? --- cin nie
+7. Czy można czytać po jednym znaku? ----- nie, bo wiadomosci moga byc wiadomosci w paru pakietach
 

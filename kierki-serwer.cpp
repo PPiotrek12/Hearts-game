@@ -21,7 +21,12 @@
 
 using namespace std;
 
-const int MAX_CLIENTS = 100;
+#define wrong_msg                                             \
+    do {                                                      \
+        err("wrong message from client - closing connection");\
+        return;                                               \
+    } while(0)
+
 const int QUEUE_LENGTH = 50;
 
 void parse_arguments(int argc, char* argv[], uint16_t *port, bool *wasPortSet, string *file, int *timeout) {
@@ -150,17 +155,17 @@ int main(int argc, char* argv[]) {
     bool wasPortSet = false;
     parse_arguments(argc, argv, &port, &wasPortSet, &file, &timeout);
     Game_scenario game_scenario;
-    game_scenario.parse(file);
+    game_scenario.parse(file); // Read game scenario from file.
 
-    sockaddr_in server_address;
-    server_address.sin_family = AF_UNSPEC;
-    server_address.sin_addr.s_addr = htonl(INADDR_ANY);
-    if (wasPortSet) server_address.sin_port = htons(port);
+    sockaddr_in6 server_address{};
+    server_address.sin6_family = AF_INET6;
+    server_address.sin6_addr = in6addr_any;
+    if (wasPortSet) server_address.sin6_port = htons(port);
 
-    int socket_fd = socket(AF_INET, SOCK_STREAM, 0); // Czy tutaj AF_INET jest okej?
+    int socket_fd = socket(AF_INET6, SOCK_STREAM, 0);
     if (socket_fd < 0) syserr("socket");
 
-    if (bind(socket_fd, (sockaddr*)&server_address, sizeof(server_address)) < 0) syserr("bind");
+    if (bind(socket_fd, (sockaddr*)&server_address, sizeof(server_address)) < 0) syserr("bind"); // TODO: jak zrobic, zeby sluchac na wszystkich portach?
     if (listen(socket_fd, QUEUE_LENGTH) < 0) syserr("listen");
 
     main_server_loop(socket_fd, game_scenario, timeout);

@@ -37,26 +37,6 @@ struct Deal_server {
     }
 };
 
-struct Game_stage_server {
-    bool occupied[4] = {false, false, false, false};
-    int how_many_occupied = 0;
-    int total_scores[4] = {0, 0, 0, 0};
-    int deal_number = -1;
-    Deal_server act_deal;
-    Trick_server act_trick;
-    vector <Taken> all_taken;
-
-    void send_busy(int fd) {
-        Busy busy;
-        vector <char> seats;
-        for (int i = 0; i < 4; i++)
-            if (occupied[i]) seats.push_back(int_to_seat(i));
-        busy.players = seats;
-        message mess = {.busy = busy, .is_busy = true};
-        send_message(fd, mess);
-    }
-};
-
 // Struct representing all deals in the game read from the file.
 struct Game_scenario {
     vector <Deal_server> deals;
@@ -79,6 +59,90 @@ struct Game_scenario {
             Deal_server deal;
             deal.parse(header, line1, line2, line3, line4);
             deals.push_back(deal);
+        }
+    }
+};
+
+struct Game_stage_server {
+    bool occupied[4] = {false, false, false, false};
+    int how_many_occupied = 0;
+
+    bool game_stopped = false;
+    bool game_started = false;
+
+    int total_scores[4] = {0, 0, 0, 0};
+    int deal_number = -1;
+    Deal_server act_deal;
+    Trick_server act_trick;
+    vector <Taken> all_taken;
+
+    Game_scenario game_scenario;
+
+    void send_busy(int fd) {
+        Busy busy;
+        vector <char> seats;
+        for (int i = 0; i < 4; i++)
+            if (occupied[i]) seats.push_back(int_to_seat(i));
+        busy.players = seats;
+        message mess = {.busy = busy, .is_busy = true};
+        send_message(fd, mess);
+    }
+
+    void send_all_taken(int fd) {
+        for (int i = 0; i < (int)all_taken.size(); i++) {
+            message mess = {.taken = all_taken[i], .is_taken = true};
+            send_message(fd, mess);
+        }
+    }
+};
+
+// Wrapper of pollfd structure with timeout in milliseconds.
+struct Timeout_fd {
+    int fd;
+    int timeout; // In milliseconds, -1 if no timeout.
+    int revents;
+    string buffer;
+};
+
+// Structure for listening on multiple file descriptors with timeouts. It holds a vector of clients
+// and a file descriptor for accepting new connections. It has a method wrapped_poll that is a
+// poll which ends after the shortest timeout of all clients. It updates timeouts and revents.
+struct Listener {
+    vector <Timeout_fd> clients; // First 4 clients are players, the rest are not.
+    Timeout_fd accepts;
+    void wrapped_poll() {
+        pollfd fds[clients.size() + 1];
+        fds[0] = {.fd = accepts.fd, .events = POLLIN, .revents = 0};
+        int min_timeout = -1;
+        for (int i = 0; i < (int)clients.size(); i++) {
+            fds[i + 1] = {.fd = clients[i].fd, .events = POLLIN, .revents = 0};
+            if (clients[i].timeout >= 0) {
+                if (min_timeout == -1) min_timeout = clients[i].timeout;
+                else min_timeout = min(min_timeout, clients[i].timeout);
+            }
+        }
+        for (int i = 0; i < (int)clients.size() + 1; i++) { 
+            if (fds[i].fd != -1 && fcntl(fds[i].fd, F_SETFL, O_NONBLOCK) < 0) // TODO: czy to potrzebne?
+                syserr("fcntl"); // Set non-blocking mode.
+            fds[i].revents = 0;
+        }
+        cout<< min_timeout << endl;
+
+        // Start measuring time.
+        auto beg_time = chrono::system_clock::now();
+        int poll_status = poll(fds, clients.size() + 1, min_timeout);
+        if (poll_status < 0) syserr("poll");
+
+        // End measuring time and calculate duration in milliseconds.
+        auto end_time = chrono::system_clock::now();
+        chrono::duration<double> elapsed_seconds = end_time - beg_time;
+        int milliseconds = elapsed_seconds.count() * 1000;
+
+        // Update timeouts and revents.
+        accepts.revents = fds[0].revents;
+        for (int i = 0; i < (int)clients.size(); i++) {
+            if (clients[i].timeout != -1) clients[i].timeout -= milliseconds;
+            clients[i].revents = fds[i + 1].revents;
         }
     }
 };

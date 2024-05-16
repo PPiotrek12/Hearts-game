@@ -21,13 +21,12 @@
 
 using namespace std;
 
-#define wrong_msg                                             \
-    do {                                                      \
-        err("wrong message from client - closing connection");\
-        return;                                               \
-    } while(0)
-
 const int QUEUE_LENGTH = 50;
+
+void wrong_msg(int fd) {
+    err("wrong message from client - closing connection");
+    close(fd);
+}
 
 void parse_arguments(int argc, char* argv[], uint16_t *port, bool *wasPortSet, string *file, int *timeout) {
     *timeout = 5;
@@ -62,57 +61,6 @@ void parse_arguments(int argc, char* argv[], uint16_t *port, bool *wasPortSet, s
     if (!wasFileSet) fatal("missing -f argument");
 }
 
-// Wrapper of pollfd structure with timeout in milliseconds.
-struct Timeout_fd {
-    int fd;
-    int timeout; // In milliseconds, -1 if no timeout.
-    int revents;
-    string buffer;
-};
-
-// Structure for listening on multiple file descriptors with timeouts. It holds a vector of clients
-// and a file descriptor for accepting new connections. It has a method wrapped_poll that is a
-// poll which ends after the shortest timeout of all clients. It updates timeouts and revents.
-struct Listener {
-    vector <Timeout_fd> clients; // First 4 clients are players, the rest are not.
-    Timeout_fd accepts;
-    void wrapped_poll() {
-        pollfd fds[clients.size() + 1];
-        fds[0] = {.fd = accepts.fd, .events = POLLIN, .revents = 0};
-        int min_timeout = -1;
-        for (int i = 0; i < (int)clients.size(); i++) {
-            fds[i + 1] = {.fd = clients[i].fd, .events = POLLIN, .revents = 0};
-            if (clients[i].timeout >= 0) {
-                if (min_timeout == -1) min_timeout = clients[i].timeout;
-                else min_timeout = min(min_timeout, clients[i].timeout);
-            }
-        }
-        for (int i = 0; i < (int)clients.size() + 1; i++) { 
-            if (fds[i].fd != -1 && fcntl(fds[i].fd, F_SETFL, O_NONBLOCK) < 0) // TODO: czy to potrzebne?
-                syserr("fcntl"); // Set non-blocking mode.
-            fds[i].revents = 0;
-        }
-        cout<< min_timeout << endl;
-
-        // Start measuring time.
-        auto beg_time = chrono::system_clock::now();
-        int poll_status = poll(fds, clients.size() + 1, min_timeout);
-        if (poll_status < 0) syserr("poll");
-
-        // End measuring time and calculate duration in milliseconds.
-        auto end_time = chrono::system_clock::now();
-        chrono::duration<double> elapsed_seconds = end_time - beg_time;
-        int milliseconds = elapsed_seconds.count() * 1000;
-
-        // Update timeouts and revents.
-        accepts.revents = fds[0].revents;
-        for (int i = 0; i < (int)clients.size(); i++) {
-            if (clients[i].timeout != -1) clients[i].timeout -= milliseconds;
-            clients[i].revents = fds[i + 1].revents;
-        }
-    }
-};
-
 // Accept new client and add it to the list of clients.
 void accept_new_client(shared_ptr<Listener> listener, int timeout) {
     sockaddr_in client_address;
@@ -123,6 +71,57 @@ void accept_new_client(shared_ptr<Listener> listener, int timeout) {
     // Add new client to the list with default timeout.
     Timeout_fd new_client = {client_fd, timeout * 1000, 0, ""};
     listener->clients.push_back(new_client);
+}
+
+void end_game(shared_ptr<Listener> listener, shared_ptr<Game_stage_server> game) {
+    // Send TOTAL message.
+    vector <int> scores;
+    vector <char> players;
+    for (int i = 0; i < 4; i++) {
+        scores.push_back(game->total_scores[i]);
+        players.push_back(int_to_seat(i));
+    }
+    Score total = {.scores = scores, .players = players, .is_total = true};
+    message msg = {.total = total, .is_total = true};
+    for (int i = 0; i < 4; i++) {
+        send_message(listener->clients[i].fd, msg);
+        close(listener->clients[i].fd);
+    }
+    exit(0);
+}
+
+void rejoined(int fd, int seat, shared_ptr<Game_stage_server> game) {
+    game->game_stopped = false;
+    message mess = {.deal = game->act_deal.deals[seat], .is_deal = true};
+    send_message(fd, mess);
+    game->send_all_taken(fd);
+}
+
+void new_trick(shared_ptr<Listener> listener, shared_ptr<Game_stage_server> game) {
+    game->act_trick.trick_number++;
+    game->act_trick.cards.clear();
+    game->act_trick.how_many_played = 0;
+    for (int i = 0; i < 4; i++) 
+        game->act_trick.played[i] = false;
+
+    game->act_trick.act_player = game->act_deal.first_player;
+    Trick trick = {.trick_number = game->act_trick.trick_number, .cards = {}};
+    message mess = {.trick = trick, .is_trick = true};
+    send_message(listener->clients[game->act_trick.act_player].fd, mess);
+}
+
+void new_deal(shared_ptr<Listener> listener, shared_ptr<Game_stage_server> game) {
+    game->deal_number++;
+    if (game->deal_number >= (int)game->game_scenario.deals.size()) end_game(listener, game);
+    game->act_deal = game->game_scenario.deals[game->deal_number];
+    for (int i = 0; i < 4; i++) {
+        message mess = {.deal = game->act_deal.deals[i], .is_deal = true};
+        send_message(listener->clients[i].fd, mess);
+    }
+    game->all_taken.clear();
+
+    game->act_trick.trick_number = 0;
+    new_trick(listener, game);
 }
 
 // Check activities on not playing clients.
@@ -137,7 +136,7 @@ void receive_from_not_playing(shared_ptr <Listener> listener,
         if (listener->clients[i].revents & (POLLIN | POLLERR)) {
             message mess = read_message(listener->clients[i].fd, &(listener->clients[i].buffer));
             if (!mess.is_iam) {
-                close(listener->clients[i].fd);
+                wrong_msg(listener->clients[i].fd);
                 listener->clients.erase(listener->clients.begin() + i);
                 i--;
                 continue;
@@ -153,6 +152,17 @@ void receive_from_not_playing(shared_ptr <Listener> listener,
                 game->how_many_occupied++;
                 listener->clients[seat] = listener->clients[i];
                 listener->clients[seat].timeout = -1;
+                if (game->how_many_occupied == 4) {
+                    if (game->game_started) {
+                        // Resuming the game.
+                        rejoined(listener->clients[seat].fd, seat, game);
+                    }
+                    else {
+                        // Starting the game.
+                        game->game_started = true;
+                        new_deal(listener, game);
+                    }
+                } 
             }
             listener->clients.erase(listener->clients.begin() + i);
             i--;
@@ -163,6 +173,7 @@ void receive_from_not_playing(shared_ptr <Listener> listener,
 // Main server loop. It listens on the socket_fd for new connections and on clients for messages.
 void main_server_loop(int socket_fd, Game_scenario game_scenario, int timeout) {
     shared_ptr<Game_stage_server> game = make_shared<Game_stage_server>();
+    game->game_scenario = game_scenario;
 
     // Create and fill Listener structure.
     shared_ptr<Listener> listener = make_shared<Listener>();

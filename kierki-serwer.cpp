@@ -67,13 +67,14 @@ struct Timeout_fd {
     int fd;
     int timeout; // In milliseconds, -1 if no timeout.
     int revents;
+    string buffer;
 };
 
 // Structure for listening on multiple file descriptors with timeouts. It holds a vector of clients
 // and a file descriptor for accepting new connections. It has a method wrapped_poll that is a
 // poll which ends after the shortest timeout of all clients. It updates timeouts and revents.
 struct Listener {
-    vector <Timeout_fd> clients;
+    vector <Timeout_fd> clients; // First 4 clients are players, the rest are not.
     Timeout_fd accepts;
     void wrapped_poll() {
         pollfd fds[clients.size() + 1];
@@ -91,11 +92,10 @@ struct Listener {
                 syserr("fcntl"); // Set non-blocking mode.
             fds[i].revents = 0;
         }
+        cout<< min_timeout << endl;
 
         // Start measuring time.
         auto beg_time = chrono::system_clock::now();
-
-        cout<< min_timeout << endl;
         int poll_status = poll(fds, clients.size() + 1, min_timeout);
         if (poll_status < 0) syserr("poll");
 
@@ -113,37 +113,71 @@ struct Listener {
     }
 };
 
+// Accept new client and add it to the list of clients.
+void accept_new_client(shared_ptr<Listener> listener, int timeout) {
+    sockaddr_in client_address;
+    socklen_t client_address_len = sizeof(client_address);
+    int client_fd = accept(listener->accepts.fd, (sockaddr*)&client_address, 
+                                                            &client_address_len);
+    if (client_fd < 0) syserr("accept");
+    // Add new client to the list with default timeout.
+    Timeout_fd new_client = {client_fd, timeout * 1000, 0, ""};
+    listener->clients.push_back(new_client);
+}
+
+// Check activities on not playing clients.
+void receive_from_not_playing(shared_ptr <Listener> listener, 
+                              shared_ptr <Game_stage_server> game) {
+    for (int i = 4; i < (int)listener->clients.size(); i++) {
+        if (listener->clients[i].timeout <= 0) {
+            close(listener->clients[i].fd);
+            listener->clients.erase(listener->clients.begin() + i);
+            i--;
+        }
+        if (listener->clients[i].revents & (POLLIN | POLLERR)) {
+            message mess = read_message(listener->clients[i].fd, &(listener->clients[i].buffer));
+            if (!mess.is_iam) {
+                close(listener->clients[i].fd);
+                listener->clients.erase(listener->clients.begin() + i);
+                i--;
+                continue;
+            }
+            // Received IAM message, new we need to check if the seat is free.
+            int seat = seat_to_int(mess.iam.player);
+            if (game->occupied[seat]) {
+                game->send_busy(listener->clients[i].fd);
+                close(listener->clients[i].fd);
+            }
+            else {
+                game->occupied[seat] = true;
+                game->how_many_occupied++;
+                listener->clients[seat] = listener->clients[i];
+                listener->clients[seat].timeout = -1;
+            }
+            listener->clients.erase(listener->clients.begin() + i);
+            i--;
+        }
+    }
+}
+
+// Main server loop. It listens on the socket_fd for new connections and on clients for messages.
 void main_server_loop(int socket_fd, Game_scenario game_scenario, int timeout) {
     shared_ptr<Game_stage_server> game = make_shared<Game_stage_server>();
 
     // Create and fill Listener structure.
-    Listener listener;
-    listener.accepts = {.fd = socket_fd, .timeout = -1, .revents = 0};
+    shared_ptr<Listener> listener = make_shared<Listener>();
+    listener->accepts = {socket_fd, -1, 0, ""};
     for (int i = 0; i < 4; i++)
-        listener.clients.push_back({.fd = -1, .timeout = -1, .revents = 0});
+        listener->clients.push_back({-1, -1, 0, ""});
 
     while (true) {
-        listener.wrapped_poll();
+        cout << "clients.size() = " << listener->clients.size() << "\n";
+        listener->wrapped_poll();
 
-        if (listener.accepts.revents & (POLLIN | POLLERR)) { // New client is connecting.
-            sockaddr_in client_address;
-            socklen_t client_address_len = sizeof(client_address);
-            int client_fd = accept(listener.accepts.fd, (sockaddr*)&client_address, 
-                                                                    &client_address_len);
-            if (client_fd < 0) syserr("accept");
+        if (listener->accepts.revents & (POLLIN | POLLERR)) // New client is connecting.
+            accept_new_client(listener, timeout);
 
-            Timeout_fd new_client = {.fd = client_fd, .timeout = timeout * 1000, .revents = 0};
-            listener.clients.push_back(new_client);
-        }
-        for (int i = 4; i < (int)listener.clients.size(); i++) {
-            if (listener.clients[i].revents & (POLLIN | POLLERR)) { // Client message.
-                // message mess = read_message(listener.clients[i].fd);
-                // if (mess.closed_connection) {
-                //     close(listener.clients[i].fd);
-                //     listener.clients.erase(listener.clients.begin() + i);
-                // }
-            }
-        }
+        receive_from_not_playing(listener, game);
     }
 }
 

@@ -81,6 +81,7 @@ void process_deal_message(shared_ptr<Game_stage_client> game, Deal deal) {
 void process_trick_message(shared_ptr<Game_stage_client> game, Trick trick) {
     if (!game->in_deal) wrong_msg;
     if (!game->in_trick && trick.trick_number != game->act_trick_number + 1) wrong_msg;
+    if (game->in_trick && trick.trick_number != game->act_trick_number) wrong_msg; // Retransmit.
 
     if (!game->is_auto_player) cout << trick.describe(game->act_deal.cards);
     game->in_trick = true;
@@ -104,9 +105,11 @@ void process_wrong_message(shared_ptr<Game_stage_client> game, Wrong wrong) {
     if (wrong.trick_number != game->act_trick_number) wrong_msg;
     if (game->waiting_for_card) wrong_msg;
 
-    if (!game->is_auto_player) cout << wrong.describe();
-    game->waiting_for_card = true;
-    game->ask_for_a_card();
+    if (!game->is_auto_player) {
+        cout << wrong.describe();
+        game->waiting_for_card = true;
+        game->ask_for_a_card();
+    }
 }
 
 void process_taken_message(shared_ptr<Game_stage_client> game, Taken taken) {
@@ -119,11 +122,11 @@ void process_taken_message(shared_ptr<Game_stage_client> game, Taken taken) {
     if(game->waiting_for_card) wrong_msg;
 
     if (!game->is_auto_player) cout << taken.describe();
+    if (!game->in_trick && game->receive_previous_taken) // Remove cards from previous trick.
+        game->remove_card(taken.cards);
     game->act_trick_number = taken.trick_number;
     game->in_trick = false;
     game->all_taken.push_back(taken);
-    if (!game->in_trick && game->receive_previous_taken) // Remove cards from previous trick.
-        game->remove_card(taken.cards);
 }
 
 void process_score_message(shared_ptr<Game_stage_client> game, Score score) {
@@ -147,6 +150,7 @@ void receive_server_message(shared_ptr<Game_stage_client> game, pollfd *fds) {
         if (game->game_over) exit(0);
         else exit(1);
     }
+    if (game->game_over) wrong_msg;
     if (mess.is_busy) process_busy_message(game, mess.busy);
     if (mess.is_deal) process_deal_message(game, mess.deal);
     if (mess.is_trick) process_trick_message(game, mess.trick);
@@ -184,7 +188,6 @@ void main_client_loop(pollfd *fds, bool is_auto, char seat) {
 
     message iam = {.iam = {.player = seat}, .is_iam = true};
     send_message(fds[0].fd, iam, game->is_auto_player);
-
     int fds_nr = 2;
     if (is_auto) fds_nr = 1;
 

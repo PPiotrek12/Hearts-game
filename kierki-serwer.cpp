@@ -97,35 +97,29 @@ void rejoined(int fd, int seat, shared_ptr<Game_stage_server> game) {
     game->send_all_taken(fd);
 }
 
-void new_trick(shared_ptr<Listener> listener, shared_ptr<Game_stage_server> game) {
+void new_trick(shared_ptr<Listener> listener, shared_ptr<Game_stage_server> game, int first) {
     game->act_trick.trick_number++;
     game->act_trick.cards.clear();
     game->act_trick.how_many_played = 0;
-    for (int i = 0; i < 4; i++) 
-        game->act_trick.played[i] = false;
-
-    game->act_trick.act_player = game->act_deal.first_player;
-    Trick trick = {.trick_number = game->act_trick.trick_number, .cards = {}};
-    message mess = {.trick = trick, .is_trick = true};
-    send_message(listener->clients[game->act_trick.act_player].fd, mess);
+    game->act_trick.act_player = first;
+    game->act_trick.send_trick(listener->clients[first].fd);
 }
 
 void new_deal(shared_ptr<Listener> listener, shared_ptr<Game_stage_server> game) {
     game->deal_number++;
-    if (game->deal_number >= (int)game->game_scenario.deals.size()) end_game(listener, game);
-    game->act_deal = game->game_scenario.deals[game->deal_number];
-    for (int i = 0; i < 4; i++) {
-        message mess = {.deal = game->act_deal.deals[i], .is_deal = true};
-        send_message(listener->clients[i].fd, mess);
-    }
+    if (game->deal_number >= (int)game->game_scenario.deals.size())
+        end_game(listener, game);
     game->all_taken.clear();
+    game->act_deal = game->game_scenario.deals[game->deal_number];
+    game->act_deal.send_deals(listener);
 
+    // Starting the first trick.
     game->act_trick.trick_number = 0;
-    new_trick(listener, game);
+    new_trick(listener, game, game->act_deal.first_player);
 }
 
 // Check activities on not playing clients.
-void receive_from_not_playing(shared_ptr <Listener> listener, 
+void receive_from_not_playing(shared_ptr <Listener> listener,
                               shared_ptr <Game_stage_server> game) {
     for (int i = 4; i < (int)listener->clients.size(); i++) {
         if (listener->clients[i].timeout <= 0) {
@@ -135,34 +129,27 @@ void receive_from_not_playing(shared_ptr <Listener> listener,
         }
         if (listener->clients[i].revents & (POLLIN | POLLERR)) {
             message mess = read_message(listener->clients[i].fd, &(listener->clients[i].buffer));
-            if (!mess.is_iam) {
-                wrong_msg(listener->clients[i].fd);
-                listener->clients.erase(listener->clients.begin() + i);
-                i--;
-                continue;
-            }
-            // Received IAM message, new we need to check if the seat is free.
             int seat = seat_to_int(mess.iam.player);
-            if (game->occupied[seat]) {
-                game->send_busy(listener->clients[i].fd);
-                close(listener->clients[i].fd);
-            }
-            else {
-                game->occupied[seat] = true;
-                game->how_many_occupied++;
-                listener->clients[seat] = listener->clients[i];
-                listener->clients[seat].timeout = -1;
-                if (game->how_many_occupied == 4) {
-                    if (game->game_started) {
-                        // Resuming the game.
-                        rejoined(listener->clients[seat].fd, seat, game);
+            if (!mess.is_iam || seat == -1) // Wrong message.
+                wrong_msg(listener->clients[i].fd);
+            else { // Received IAM message, new we need to check if the seat is free.
+                if (game->occupied[seat]) {
+                    game->send_busy(listener->clients[i].fd);
+                    close(listener->clients[i].fd);
+                } else { // Seat is free.
+                    game->occupied[seat] = true;
+                    game->how_many_occupied++;
+                    listener->clients[seat] = listener->clients[i];
+                    listener->clients[seat].timeout = -1;
+                    if (game->how_many_occupied == 4) {
+                        if (game->game_started) // Resuming the game.    
+                            rejoined(listener->clients[seat].fd, seat, game);
+                        else { // Starting the game.
+                            game->game_started = true;
+                            new_deal(listener, game);
+                        }
                     }
-                    else {
-                        // Starting the game.
-                        game->game_started = true;
-                        new_deal(listener, game);
-                    }
-                } 
+                }
             }
             listener->clients.erase(listener->clients.begin() + i);
             i--;

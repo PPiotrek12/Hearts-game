@@ -14,11 +14,68 @@
 
 using namespace std;
 
+// Wrapper of pollfd structure with timeout in milliseconds.
+struct Timeout_fd {
+    int fd;
+    int timeout; // In milliseconds, -1 if no timeout.
+    int revents;
+    string buffer;
+};
+
+// Structure for listening on multiple file descriptors with timeouts. It holds a vector of clients
+// and a file descriptor for accepting new connections. It has a method wrapped_poll that is a
+// poll which ends after the shortest timeout of all clients. It updates timeouts and revents.
+struct Listener {
+    vector <Timeout_fd> clients; // First 4 clients are players, the rest are not.
+    Timeout_fd accepts;
+    void wrapped_poll() {
+        pollfd fds[clients.size() + 1];
+        fds[0] = {.fd = accepts.fd, .events = POLLIN, .revents = 0};
+        int min_timeout = -1;
+        for (int i = 0; i < (int)clients.size(); i++) {
+            fds[i + 1] = {.fd = clients[i].fd, .events = POLLIN, .revents = 0};
+            if (clients[i].timeout >= 0) {
+                if (min_timeout == -1) min_timeout = clients[i].timeout;
+                else min_timeout = min(min_timeout, clients[i].timeout);
+            }
+        }
+        for (int i = 0; i < (int)clients.size() + 1; i++) { 
+            if (fds[i].fd != -1 && fcntl(fds[i].fd, F_SETFL, O_NONBLOCK) < 0) // TODO: czy to potrzebne?
+                syserr("fcntl"); // Set non-blocking mode.
+            fds[i].revents = 0;
+        }
+        cout<< min_timeout << endl;
+
+        // Start measuring time.
+        auto beg_time = chrono::system_clock::now();
+        int poll_status = poll(fds, clients.size() + 1, min_timeout);
+        if (poll_status < 0) syserr("poll");
+
+        // End measuring time and calculate duration in milliseconds.
+        auto end_time = chrono::system_clock::now();
+        chrono::duration<double> elapsed_seconds = end_time - beg_time;
+        int milliseconds = elapsed_seconds.count() * 1000;
+
+        // Update timeouts and revents.
+        accepts.revents = fds[0].revents;
+        for (int i = 0; i < (int)clients.size(); i++) {
+            if (clients[i].timeout != -1) clients[i].timeout -= milliseconds;
+            clients[i].revents = fds[i + 1].revents;
+        }
+    }
+};
+
 // Struct representing a specific trick for all players.
 struct Trick_server: Trick {
-    bool played[4] = {false, false, false, false};
-    int how_many_played = 0;
-    int act_player = 0;
+    int how_many_played = 0, act_player = 0;
+    void send_trick(int fd) {
+        message mess = {.trick = *this, .is_trick = true};
+        send_message(fd, mess);
+    }
+    void send_wrond(int fd) {
+        message mess = {.wrong = {.trick_number = trick_number}, .is_wrong = true};
+        send_message(fd, mess);
+    }
 };
 
 // Stuct representing a specific deal for all players.
@@ -34,6 +91,12 @@ struct Deal_server {
         deals[1].parse(header + list2);
         deals[2].parse(header + list3);
         deals[3].parse(header + list4);
+    }
+    void send_deals(shared_ptr<Listener> listener) {
+        for (int i = 0; i < 4; i++) {
+            message mess = {.deal = deals[i], .is_deal = true};
+            send_message(listener->clients[i].fd, mess);
+        }
     }
 };
 
@@ -92,57 +155,6 @@ struct Game_stage_server {
         for (int i = 0; i < (int)all_taken.size(); i++) {
             message mess = {.taken = all_taken[i], .is_taken = true};
             send_message(fd, mess);
-        }
-    }
-};
-
-// Wrapper of pollfd structure with timeout in milliseconds.
-struct Timeout_fd {
-    int fd;
-    int timeout; // In milliseconds, -1 if no timeout.
-    int revents;
-    string buffer;
-};
-
-// Structure for listening on multiple file descriptors with timeouts. It holds a vector of clients
-// and a file descriptor for accepting new connections. It has a method wrapped_poll that is a
-// poll which ends after the shortest timeout of all clients. It updates timeouts and revents.
-struct Listener {
-    vector <Timeout_fd> clients; // First 4 clients are players, the rest are not.
-    Timeout_fd accepts;
-    void wrapped_poll() {
-        pollfd fds[clients.size() + 1];
-        fds[0] = {.fd = accepts.fd, .events = POLLIN, .revents = 0};
-        int min_timeout = -1;
-        for (int i = 0; i < (int)clients.size(); i++) {
-            fds[i + 1] = {.fd = clients[i].fd, .events = POLLIN, .revents = 0};
-            if (clients[i].timeout >= 0) {
-                if (min_timeout == -1) min_timeout = clients[i].timeout;
-                else min_timeout = min(min_timeout, clients[i].timeout);
-            }
-        }
-        for (int i = 0; i < (int)clients.size() + 1; i++) { 
-            if (fds[i].fd != -1 && fcntl(fds[i].fd, F_SETFL, O_NONBLOCK) < 0) // TODO: czy to potrzebne?
-                syserr("fcntl"); // Set non-blocking mode.
-            fds[i].revents = 0;
-        }
-        cout<< min_timeout << endl;
-
-        // Start measuring time.
-        auto beg_time = chrono::system_clock::now();
-        int poll_status = poll(fds, clients.size() + 1, min_timeout);
-        if (poll_status < 0) syserr("poll");
-
-        // End measuring time and calculate duration in milliseconds.
-        auto end_time = chrono::system_clock::now();
-        chrono::duration<double> elapsed_seconds = end_time - beg_time;
-        int milliseconds = elapsed_seconds.count() * 1000;
-
-        // Update timeouts and revents.
-        accepts.revents = fds[0].revents;
-        for (int i = 0; i < (int)clients.size(); i++) {
-            if (clients[i].timeout != -1) clients[i].timeout -= milliseconds;
-            clients[i].revents = fds[i + 1].revents;
         }
     }
 };

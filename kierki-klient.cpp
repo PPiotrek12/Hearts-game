@@ -145,19 +145,23 @@ void process_total_message(shared_ptr<Game_stage_client> game, Score total) {
 }
 
 void receive_server_message(shared_ptr<Game_stage_client> game, pollfd *fds) {
-    message mess = read_message(fds[0].fd, &(game->buffer_from_server), game->is_auto_player);
-    if (mess.closed_connection) {
+    int length = read_message(fds[0].fd, &(game->buffer_from_server), game->is_auto_player);
+    if (!length) { // Server disconnected.
         if (game->game_over) exit(0);
         else exit(1);
     }
-    if (game->game_over) wrong_msg;
-    if (mess.is_busy) process_busy_message(game, mess.busy);
-    if (mess.is_deal) process_deal_message(game, mess.deal);
-    if (mess.is_trick) process_trick_message(game, mess.trick);
-    if (mess.is_wrong) process_wrong_message(game, mess.wrong);
-    if (mess.is_taken) process_taken_message(game, mess.taken);
-    if (mess.is_score) process_score_message(game, mess.score);
-    if (mess.is_total) process_total_message(game, mess.total);
+    message mess = parse_message(&(game->buffer_from_server));
+    while (!mess.empty) {
+        if (game->game_over) wrong_msg;
+        if (mess.is_busy) process_busy_message(game, mess.busy);
+        if (mess.is_deal) process_deal_message(game, mess.deal);
+        if (mess.is_trick) process_trick_message(game, mess.trick);
+        if (mess.is_wrong) process_wrong_message(game, mess.wrong);
+        if (mess.is_taken) process_taken_message(game, mess.taken);
+        if (mess.is_score) process_score_message(game, mess.score);
+        if (mess.is_total) process_total_message(game, mess.total);
+        mess = parse_message(&(game->buffer_from_server));
+    }
 }
 
 void receive_user_message(shared_ptr<Game_stage_client> game) {

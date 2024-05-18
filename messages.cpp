@@ -70,15 +70,19 @@ string get_current_time() {
 
 const int MAX_SIZE = 1000;
 // Function reading a message from the socket - reads it into the buffer.
-message read_message(int fd, string *buffer, bool is_auto_player) {
+int read_message(int fd, string *buffer, bool is_auto_player) {
     char act[MAX_SIZE];
     int length = read(fd, act, MAX_SIZE);
     if (length < 0) syserr("read");
-    if (length == 0) { // If read returns 0, it means the connection is closed.
-        message res = {.closed_connection = true};
-        return res;
-    }
     *buffer += string(act, length);
+    string current_time = get_current_time();
+    if (is_auto_player)
+        cout << "[" << peer_address(fd) << "," << local_address(fd) 
+             << "," << current_time << "] " << string(act, length); // TODO: czy tu nie powinno byc entera?
+    return length;
+}
+
+message parse_message(string *buffer) {
     // Extract the first message from the buffer - up to the first "\r\n".
     string mess;
     for (int i = 0; i < (int)buffer->size(); i++) {
@@ -88,10 +92,6 @@ message read_message(int fd, string *buffer, bool is_auto_player) {
             break;
         }
     }
-    string current_time = get_current_time();
-    if (is_auto_player)
-        cout << "[" << peer_address(fd) << "," << local_address(fd) 
-             << "," << current_time << "] " << string(act, length); // TODO: czy tu nie powinno byc entera?
     message res;
     if (mess.empty()) { // There weren't any full messages in the buffer.
         res.empty = true;

@@ -244,8 +244,8 @@ struct Taken {
 
 // Struct representing a SCORE message.
 struct Score {
-    vector <int> scores;
-    vector <char> players;
+    vector <int> scores = {0, 0, 0, 0};
+    vector <char> players = {'N', 'E', 'S', 'W'};
     bool is_total = false;
     void parse(string mess, bool total = false) {
         is_total = total;
@@ -335,7 +335,8 @@ struct message {
     }
 };
 
-message read_message(int fd, string *buffer, bool is_auto_player = true);
+int read_message(int fd, string *buffer, bool is_auto_player = true);
+message parse_message(string *buffer);
 void send_message(int fd, message mess, bool is_auto_player = true);
 int seat_to_int(char seat);
 char int_to_seat(int seat);

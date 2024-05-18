@@ -18,3 +18,7 @@
 #include "messages.h"
 #include "err.h"
 #include "game_server.h"
+
+int find_looser_and_update_scores(shared_ptr<Game_stage_server> game) { // TODO: implement it
+    return 0;
+}

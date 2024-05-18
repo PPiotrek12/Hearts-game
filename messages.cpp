@@ -79,7 +79,8 @@ message read_message(int fd, string *buffer, bool is_auto_player) {
         return res;
     }
     *buffer += string(act, length);
-    string mess; // Extract the first message from the buffer - up to the first "\r\n".
+    // Extract the first message from the buffer - up to the first "\r\n".
+    string mess;
     for (int i = 0; i < (int)buffer->size(); i++) {
         if (i + 1 < (int)buffer->size() && (*buffer)[i] == '\r' && (*buffer)[i + 1] == '\n') {
             mess = buffer->substr(0, i);
@@ -92,7 +93,10 @@ message read_message(int fd, string *buffer, bool is_auto_player) {
         cout << "[" << peer_address(fd) << "," << local_address(fd) 
              << "," << current_time << "] " << string(act, length); // TODO: czy tu nie powinno byc entera?
     message res;
-    if (mess.empty()) return res; // There weren't any full messages in the buffer.
+    if (mess.empty()) { // There weren't any full messages in the buffer.
+        res.empty = true;
+        return res;
+    }
     res.parse(mess);
     return res;
 }

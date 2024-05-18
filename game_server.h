@@ -67,12 +67,12 @@ struct Listener {
 
 // Struct representing a specific trick for all players.
 struct Trick_server: Trick {
-    int how_many_played = 0, act_player = 0;
+    int how_many_played = 0, act_player = -1;
     void send_trick(int fd) {
         message mess = {.trick = *this, .is_trick = true};
         send_message(fd, mess);
     }
-    void send_wrond(int fd) {
+    void send_wrong(int fd) {
         message mess = {.wrong = {.trick_number = trick_number}, .is_wrong = true};
         send_message(fd, mess);
     }
@@ -82,7 +82,7 @@ struct Trick_server: Trick {
 struct Deal_server {
     int deal_type = 0;
     int first_player = 0; // N=0, E=1, S=2, W=3
-    int points[4] = {0, 0, 0, 0};
+    Score scores;
     Deal deals[4];
     void parse(string header, string list1, string list2, string list3, string list4) {
         deal_type = header[0] - '0';
@@ -130,15 +130,14 @@ struct Game_stage_server {
     bool occupied[4] = {false, false, false, false};
     int how_many_occupied = 0;
 
-    bool game_stopped = false;
-    bool game_started = false;
-
-    int total_scores[4] = {0, 0, 0, 0};
+    bool game_stopped = false, game_started = false;
+    int timeout;
+    Score total_scores;
     int deal_number = -1;
     Deal_server act_deal;
     Trick_server act_trick;
-    vector <Taken> all_taken;
-
+    vector <Taken> all_taken;    
+    
     Game_scenario game_scenario;
 
     void send_busy(int fd) {
@@ -158,5 +157,7 @@ struct Game_stage_server {
         }
     }
 };
+
+int find_looser_and_update_scores(shared_ptr<Game_stage_server> game);
 
 #endif

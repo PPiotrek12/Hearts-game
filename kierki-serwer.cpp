@@ -69,20 +69,13 @@ void accept_new_client(shared_ptr<Listener> listener, int timeout) {
                                                             &client_address_len);
     if (client_fd < 0) syserr("accept");
     // Add new client to the list with default timeout.
-    Timeout_fd new_client = {client_fd, timeout * 1000, 0, ""};
+    Timeout_fd new_client = {client_fd, timeout, 0, ""};
     listener->clients.push_back(new_client);
 }
 
+// Sends TOTAL messages and closes all connections.
 void end_game(shared_ptr<Listener> listener, shared_ptr<Game_stage_server> game) {
-    // Send TOTAL message.
-    vector <int> scores;
-    vector <char> players;
-    for (int i = 0; i < 4; i++) {
-        scores.push_back(game->total_scores[i]);
-        players.push_back(int_to_seat(i));
-    }
-    Score total = {.scores = scores, .players = players, .is_total = true};
-    message msg = {.total = total, .is_total = true};
+    message msg = {.total = game->total_scores, .is_total = true};
     for (int i = 0; i < 4; i++) {
         send_message(listener->clients[i].fd, msg);
         close(listener->clients[i].fd);
@@ -103,10 +96,12 @@ void new_trick(shared_ptr<Listener> listener, shared_ptr<Game_stage_server> game
     game->act_trick.how_many_played = 0;
     game->act_trick.act_player = first;
     game->act_trick.send_trick(listener->clients[first].fd);
+    listener->clients[first].timeout = game->timeout;
 }
 
 void new_deal(shared_ptr<Listener> listener, shared_ptr<Game_stage_server> game) {
     game->deal_number++;
+    // If all deals are played then end the game.
     if (game->deal_number >= (int)game->game_scenario.deals.size())
         end_game(listener, game);
     game->all_taken.clear();
@@ -129,6 +124,7 @@ void receive_from_not_playing(shared_ptr <Listener> listener,
         }
         if (listener->clients[i].revents & (POLLIN | POLLERR)) {
             message mess = read_message(listener->clients[i].fd, &(listener->clients[i].buffer));
+            if (mess.empty) continue;
             int seat = seat_to_int(mess.iam.player);
             if (!mess.is_iam || seat == -1) // Wrong message.
                 wrong_msg(listener->clients[i].fd);
@@ -141,6 +137,7 @@ void receive_from_not_playing(shared_ptr <Listener> listener,
                     game->how_many_occupied++;
                     listener->clients[seat] = listener->clients[i];
                     listener->clients[seat].timeout = -1;
+                    listener->clients[seat].revents = 0;
                     if (game->how_many_occupied == 4) {
                         if (game->game_started) // Resuming the game.    
                             rejoined(listener->clients[seat].fd, seat, game);
@@ -157,10 +154,100 @@ void receive_from_not_playing(shared_ptr <Listener> listener,
     }
 }
 
+// Returns 1 if player chose correct card, 0 otherwise.
+// If the trick is correct then update the game state.
+bool is_trick_correct(shared_ptr<Game_stage_server> game, Trick trick, int player) {
+    if (trick.cards.size() != 1) return 0;
+    Card played_card = trick.cards[0];
+    cout<< played_card.color << " " << played_card.value << "\n";
+    for (int i = 0; i < (int)game->act_deal.deals[player].cards.size(); i++) {
+        Card act_card = game->act_deal.deals[player].cards[i];
+        // If the card is the played card then remove it from the player's hand.
+        if (act_card.value == played_card.value && act_card.color == played_card.color) {
+            game->act_deal.deals[player].cards.erase(
+                                        game->act_deal.deals[player].cards.begin() + i);
+            game->act_trick.cards.push_back(played_card);
+            game->act_trick.how_many_played++;
+            return 1;
+        }
+    }
+    return 0;
+}
+
+void ask_next_player(shared_ptr<Listener> listener, shared_ptr<Game_stage_server> game) {
+    if (game->act_trick.how_many_played < 4) {
+        game->act_trick.act_player = (game->act_trick.act_player + 1) % 4;
+        listener->clients[game->act_trick.act_player].timeout = game->timeout;
+        game->act_trick.send_trick(listener->clients[game->act_trick.act_player].fd);
+    }
+    else { // End of the trick.
+        int looser = find_looser_and_update_scores(game);
+        Taken taken = {.trick_number = game->act_trick.trick_number, 
+                       .player = int_to_seat(looser), 
+                       .cards = game->act_trick.cards};
+        game->all_taken.push_back(taken);
+        message mess = {.taken = taken, .is_taken = true};
+        for (int i = 0; i < 4; i++)
+            send_message(listener->clients[i].fd, mess);
+
+        if (game->act_deal.deals[0].cards.empty()) { // End of the deal.
+            // Sending SCORE messages and starting new deal.
+            message score = {.score = game->act_deal.scores, .is_score = true};
+            for (int i = 0; i < 4; i++)
+                send_message(listener->clients[i].fd, score);
+            new_deal(listener, game);
+        }
+        else 
+            new_trick(listener, game, looser);
+    }
+}
+
+void receive_from_playing(shared_ptr <Listener> listener,
+                          shared_ptr <Game_stage_server> game) {
+    for (int i = 0; i < 4; i++) {
+        if (listener->clients[i].fd == -1) continue;
+        // If timeout passed then resend TRICK message.
+        if (i == game->act_trick.act_player && listener->clients[i].timeout <= 0) {
+            game->act_trick.send_trick(listener->clients[i].fd);
+            listener->clients[i].timeout = game->timeout; // Reset timeout.
+            continue;
+        }
+        if (listener->clients[i].revents & (POLLIN | POLLERR)) {
+            message mess = read_message(listener->clients[i].fd, &(listener->clients[i].buffer));
+            if (mess.empty) continue;
+            if (!mess.is_trick) { // Wrong message - closing connection and stopping the game.
+                wrong_msg(listener->clients[i].fd);
+                listener->clients[i] = {-1, -1, 0, ""};
+                game->occupied[i] = false;
+                game->how_many_occupied--;
+                game->game_stopped = true;
+                continue;
+            }
+            // Received TRICK message.
+            if (i != game->act_trick.act_player) // Wrong player.
+                game->act_trick.send_wrong(listener->clients[i].fd);
+            else { // Correct player sent TRICK.
+                bool correct = is_trick_correct(game, mess.trick, i);
+                if (!correct) {
+                    // If player has chosen wrong card then send WRONG message.
+                    // We don't reset timeout here, because we ignore this 
+                    // wrong message and wait for the correct one.
+                    game->act_trick.send_wrong(listener->clients[i].fd);
+                }
+                else {
+                    listener->clients[i].timeout = -1;
+                    ask_next_player(listener, game);
+                }
+           }
+        }
+    }
+}
+
 // Main server loop. It listens on the socket_fd for new connections and on clients for messages.
 void main_server_loop(int socket_fd, Game_scenario game_scenario, int timeout) {
     shared_ptr<Game_stage_server> game = make_shared<Game_stage_server>();
     game->game_scenario = game_scenario;
+    game->timeout = timeout * 1000;
 
     // Create and fill Listener structure.
     shared_ptr<Listener> listener = make_shared<Listener>();
@@ -173,9 +260,10 @@ void main_server_loop(int socket_fd, Game_scenario game_scenario, int timeout) {
         listener->wrapped_poll();
 
         if (listener->accepts.revents & (POLLIN | POLLERR)) // New client is connecting.
-            accept_new_client(listener, timeout);
+            accept_new_client(listener, game->timeout);
 
         receive_from_not_playing(listener, game);
+        receive_from_playing(listener, game);
     }
 }
 

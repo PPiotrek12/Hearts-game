@@ -13,7 +13,7 @@ struct Card {
     char color;
     int value;
     Card(string mess) {
-        if (mess[0] == '1') value = 10;
+        if (mess[0] == '1' && mess[1] == '0') value = 10;
         else if (mess[0] == 'J') value = 11;
         else if (mess[0] == 'Q') value = 12;
         else if (mess[0] == 'K') value = 13;
@@ -128,8 +128,9 @@ struct Trick {
     void parse(string mess) {
         trick_number = mess[0] - '0';
         int i = 1;
-        if ((mess.size() > 3 && (mess[3] == 'S' ||
-                mess[3] == 'H' || mess[3] == 'D' || mess[3] == 'C')) || mess.size() == 2){
+        // Check if card code doesn't start on the first index => trick number is two-digit.
+        if ((int)mess.size() > 1 && !Card::is_card_correct(mess.substr(1, 2)) 
+                && !Card::is_card_correct(mess.substr(1, 3))) {
             trick_number *= 10;
             trick_number += mess[1] - '0';
             i++;
@@ -201,8 +202,9 @@ struct Taken {
     void parse(string mess) {
         trick_number = mess[0] - '0';
         int i = 1;
-        if ((mess.size() > 3 && (mess[3] == 'S' ||
-                mess[3] == 'H' || mess[3] == 'D' || mess[3] == 'C')) || mess.size() == 2){
+        // Check if card code doesn't start on the first index => trick number is two-digit.
+        if ((int)mess.size() > 1 && !Card::is_card_correct(mess.substr(1, 2)) 
+                && !Card::is_card_correct(mess.substr(1, 3))) {
             trick_number *= 10;
             trick_number += mess[1] - '0';
             i++;
@@ -290,6 +292,7 @@ struct message {
     Taken taken = {};
     Score score = {}, total = {};
     bool closed_connection = false;
+    bool empty = false;
     bool is_iam = false, is_busy = false, is_deal = false, is_trick = false;
     bool is_wrong = false, is_taken = false, is_score = false, is_total = false;
     void parse(string mess) {

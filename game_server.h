@@ -44,7 +44,6 @@ struct Listener {
                 syserr("fcntl"); // Set non-blocking mode.
             fds[i].revents = 0;
         }
-        cout<< min_timeout << endl;
 
         // Start measuring time.
         auto beg_time = chrono::system_clock::now();
@@ -132,7 +131,7 @@ struct Game_stage_server {
 
     bool game_stopped = false, game_started = false;
     int timeout;
-    Score total_scores;
+    Score total_scores = {{0, 0, 0, 0}, {'N', 'E', 'S', 'W'}, true};
     int deal_number = -1;
     Deal_server act_deal;
     Trick_server act_trick;

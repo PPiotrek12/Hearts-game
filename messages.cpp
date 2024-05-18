@@ -74,6 +74,7 @@ int read_message(int fd, string *buffer, bool is_auto_player) {
     char act[MAX_SIZE];
     int length = read(fd, act, MAX_SIZE);
     if (length < 0) syserr("read");
+    if (length == 0) return 0;
     *buffer += string(act, length);
     string current_time = get_current_time();
     if (is_auto_player)

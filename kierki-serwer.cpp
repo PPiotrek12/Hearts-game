@@ -283,7 +283,6 @@ void main_server_loop(int socket_fd, Game_scenario game_scenario, int timeout) {
         listener->clients.push_back({-1, -1, 0, ""});
 
     while (true) {
-        cout << "clients.size() = " << listener->clients.size() << "\n";
         listener->wrapped_poll();
 
         if (listener->accepts.revents & (POLLIN | POLLERR)) // New client is connecting.

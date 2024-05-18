@@ -80,6 +80,9 @@ void end_game(shared_ptr<Listener> listener, shared_ptr<Game_stage_server> game)
         send_message(listener->clients[i].fd, msg);
         close(listener->clients[i].fd);
     }
+    close(listener->accepts.fd);
+    for (int i = 4; i < (int)listener->clients.size(); i++)
+        close(listener->clients[i].fd);
     exit(0);
 }
 

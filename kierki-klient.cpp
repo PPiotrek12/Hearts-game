@@ -147,6 +147,7 @@ void process_total_message(shared_ptr<Game_stage_client> game, Score total) {
 void receive_server_message(shared_ptr<Game_stage_client> game, pollfd *fds) {
     int length = read_message(fds[0].fd, &(game->buffer_from_server), game->is_auto_player);
     if (!length) { // Server disconnected.
+        close(fds[0].fd);
         if (game->game_over) exit(0);
         else exit(1);
     }

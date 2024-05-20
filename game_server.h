@@ -25,18 +25,23 @@ struct Timeout_fd {
 // Structure for listening on multiple file descriptors with timeouts. It holds a vector of clients
 // and a file descriptor for accepting new connections. It has a method wrapped_poll that is a
 // poll which ends after the shortest timeout of all clients. It updates timeouts and revents.
+// Additionally it has a parameter game_stopped which is used to not poll players when it is set 1.
 struct Listener {
     vector <Timeout_fd> clients; // First 4 clients are players, the rest are not.
     Timeout_fd accepts;
-    void wrapped_poll() {
+    void wrapped_poll(bool game_stopped = false) {
         pollfd fds[clients.size() + 1];
         fds[0] = {.fd = accepts.fd, .events = POLLIN, .revents = 0};
         int min_timeout = -1;
         for (int i = 0; i < (int)clients.size(); i++) {
-            fds[i + 1] = {.fd = clients[i].fd, .events = POLLIN, .revents = 0};
-            if (clients[i].timeout >= 0) {
-                if (min_timeout == -1) min_timeout = clients[i].timeout;
-                else min_timeout = min(min_timeout, clients[i].timeout);
+            if (game_stopped && i < 4) // Do not poll players when game stopped.
+                fds[i + 1] = {.fd = -1, .events = POLLIN, .revents = 0}; 
+            else {
+                fds[i + 1] = {.fd = clients[i].fd, .events = POLLIN, .revents = 0};
+                if (clients[i].timeout >= 0) {
+                    if (min_timeout == -1) min_timeout = clients[i].timeout;
+                    else min_timeout = min(min_timeout, clients[i].timeout);
+                }
             }
         }
         for (int i = 0; i < (int)clients.size() + 1; i++) { 
@@ -58,6 +63,7 @@ struct Listener {
         // Update timeouts and revents.
         accepts.revents = fds[0].revents;
         for (int i = 0; i < (int)clients.size(); i++) {
+            if (game_stopped && i < 4) continue; // Do not update players when game stopped.
             if (clients[i].timeout != -1) clients[i].timeout -= milliseconds;
             clients[i].revents = fds[i + 1].revents;
         }

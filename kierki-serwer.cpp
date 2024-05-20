@@ -286,7 +286,7 @@ void main_server_loop(int socket_fd, Game_scenario game_scenario, int timeout) {
         listener->clients.push_back({-1, -1, 0, ""});
 
     while (true) {
-        listener->wrapped_poll();
+        listener->wrapped_poll(game->game_stopped);
 
         if (listener->accepts.revents & (POLLIN | POLLERR)) // New client is connecting.
             accept_new_client(listener, game->timeout);

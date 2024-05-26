@@ -72,6 +72,7 @@ void process_deal_message(shared_ptr<Game_stage_client> game, Deal deal) {
     else game->receive_previous_taken = false;
 
     if (!game->is_auto_player) cout << deal.describe();
+    game->was_total = false;
     game->in_deal = true;
     game->act_deal = deal;
     game->first_message = false;
@@ -141,19 +142,18 @@ void process_total_message(shared_ptr<Game_stage_client> game, Score total) {
     if (game->in_deal || game->in_trick) wrong_msg;
 
     if (!game->is_auto_player) cout << total.describe();
-    game->game_over = true;
+    game->was_total = true;
 }
 
 void receive_server_message(shared_ptr<Game_stage_client> game, pollfd *fds) {
     int length = read_message(fds[0].fd, &(game->buffer_from_server), game->is_auto_player);
     if (!length) { // Server disconnected.
         close(fds[0].fd);
-        if (game->game_over) exit(0);
+        if (game->was_total) exit(0);
         else exit(1);
     }
     message mess = parse_message(&(game->buffer_from_server));
     while (!mess.empty) {
-        if (game->game_over) wrong_msg;
         if (mess.is_busy) process_busy_message(game, mess.busy);
         if (mess.is_deal) process_deal_message(game, mess.deal);
         if (mess.is_trick) process_trick_message(game, mess.trick);

@@ -142,7 +142,7 @@ struct Game_stage_server {
     Deal_server act_deal;
     Trick_server act_trick;
     vector <Taken> all_taken;    
-    
+
     Game_scenario game_scenario;
 
     void send_busy(int fd) {

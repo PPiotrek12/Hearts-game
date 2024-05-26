@@ -27,7 +27,7 @@ int find_looser_and_update_scores(shared_ptr<Game_stage_server> game) {
                 act_trick.cards[i].value > act_trick.cards[looser].value)
             looser = i;
     }
-    looser = (looser + game->act_deal.first_player) % 4;
+    looser = (looser + game->act_trick.act_player + 1) % 4;
     int p[8] = {0, 1, 0, 0, 0, 0, 0, 0};
     for (int i = 0; i < (int)act_trick.cards.size(); i++) {
         if (act_trick.cards[i].color == 'H') p[2]++;
@@ -35,7 +35,7 @@ int find_looser_and_update_scores(shared_ptr<Game_stage_server> game) {
         if (act_trick.cards[i].value == 11 || act_trick.cards[i].value == 13) p[4] += 2;
         if (act_trick.cards[i].value == 13 && act_trick.cards[i].color == 'H') p[5] += 18;
     }
-    if (act_trick.trick_number == 7 || act_trick.trick_number == 8) p[6] = 10;
+    if (act_trick.trick_number == 7 || act_trick.trick_number == 13) p[6] = 10;
     p[7] = p[1] + p[2] + p[3] + p[4] + p[5] + p[6];
     game->total_scores.scores[looser] += p[game->act_deal.deal_type];
     game->act_deal.scores.scores[looser] += p[game->act_deal.deal_type];

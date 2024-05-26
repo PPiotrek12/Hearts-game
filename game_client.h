@@ -24,7 +24,7 @@ struct Game_stage_client {
     bool first_message = true;
     bool receive_previous_taken = false;
     bool in_deal = false, in_trick = false;
-    bool game_over = false;
+    bool was_total = false;
     bool is_auto_player = false;
     bool waiting_for_card = false;
     int act_trick_number = 0;

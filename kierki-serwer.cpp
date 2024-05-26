@@ -73,16 +73,11 @@ void accept_new_client(shared_ptr<Listener> listener, int timeout) {
     listener->clients.push_back(new_client);
 }
 
-// Sends TOTAL messages and closes all connections.
-void end_game(shared_ptr<Listener> listener, shared_ptr<Game_stage_server> game) {
-    message msg = {.total = game->total_scores, .is_total = true};
-    for (int i = 0; i < 4; i++) {
-        send_message(listener->clients[i].fd, msg);
-        close(listener->clients[i].fd);
-    }
+// Closes all connections.
+void end_game(shared_ptr<Listener> listener) {
+    for (int i = 0; i < 4; i++) close(listener->clients[i].fd);
     close(listener->accepts.fd);
-    for (int i = 4; i < (int)listener->clients.size(); i++)
-        close(listener->clients[i].fd);
+    for (int i = 4; i < (int)listener->clients.size(); i++) close(listener->clients[i].fd);
     exit(0);
 }
 
@@ -106,7 +101,7 @@ void new_deal(shared_ptr<Listener> listener, shared_ptr<Game_stage_server> game)
     game->deal_number++;
     // If all deals are played then end the game.
     if (game->deal_number >= (int)game->game_scenario.deals.size())
-        end_game(listener, game);
+        end_game(listener);
     game->all_taken.clear();
     game->act_deal = game->game_scenario.deals[game->deal_number];
     game->act_deal.send_deals(listener);
@@ -208,8 +203,11 @@ void ask_next_player(shared_ptr<Listener> listener, shared_ptr<Game_stage_server
         if (game->act_deal.deals[0].cards.empty()) { // End of the deal.
             // Sending SCORE messages and starting new deal.
             message score = {.score = game->act_deal.scores, .is_score = true};
-            for (int i = 0; i < 4; i++)
+            message total = {.total = game->total_scores, .is_total = true};
+            for (int i = 0; i < 4; i++) {
                 send_message(listener->clients[i].fd, score);
+                send_message(listener->clients[i].fd, total);
+            }
             new_deal(listener, game);
         }
         else 

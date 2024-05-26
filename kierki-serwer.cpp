@@ -165,25 +165,6 @@ void receive_from_not_playing(shared_ptr <Listener> listener,
     }
 }
 
-// Returns 1 if player chose correct card, 0 otherwise.
-// If the trick is correct then update the game state.
-bool is_trick_correct(shared_ptr<Game_stage_server> game, Trick trick, int player) {
-    if (trick.cards.size() != 1) return 0;
-    Card played_card = trick.cards[0];
-    for (int i = 0; i < (int)game->act_deal.deals[player].cards.size(); i++) {
-        Card act_card = game->act_deal.deals[player].cards[i];
-        // If the card is the played card then remove it from the player's hand.
-        if (act_card.value == played_card.value && act_card.color == played_card.color) {
-            game->act_deal.deals[player].cards.erase(
-                                        game->act_deal.deals[player].cards.begin() + i);
-            game->act_trick.cards.push_back(played_card);
-            game->act_trick.how_many_played++;
-            return 1;
-        }
-    }
-    return 0;
-}
-
 void ask_next_player(shared_ptr<Listener> listener, shared_ptr<Game_stage_server> game) {
     if (game->act_trick.how_many_played < 4) {
         game->act_trick.act_player = (game->act_trick.act_player + 1) % 4;
@@ -230,7 +211,7 @@ void proceed_message_from_playing(message mess, shared_ptr<Listener> listener,
         game->act_trick.send_wrong(listener->clients[i].fd);
     else { // Correct player sent TRICK.
         bool correct = is_trick_correct(game, mess.trick, i);
-        if (!correct || mess.trick.trick_number != game->act_trick.trick_number) {
+        if (!correct) {
             // If player has chosen wrong card then send WRONG message.
             // We don't reset timeout here, because we ignore this 
             // wrong message and wait for the correct one.

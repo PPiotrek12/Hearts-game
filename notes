@@ -36,3 +36,8 @@
 6. Czy uzywanie cinow i coutow jest bezpieczne? --- cin nie
 7. Czy można czytać po jednym znaku? ----- nie, bo wiadomosci moga byc wiadomosci w paru pakietach
 
+
+
+
+8. Czy dobrze jest uznawac wiadomosci tylko gdy dostaniemy \r\n - czy wypisujemy wtedy w raporcie tez te wiadomosci?
+9. Czy jak klient sie rozlaczy, a pozniej drugi i ktos probuje wejsc na miejsce drugiego, to go nie wpuszczamy, ptawda?

@@ -232,7 +232,7 @@ void proceed_message_from_playing(message mess, shared_ptr<Listener> listener,
         game->act_trick.send_wrong(listener->clients[i].fd);
     else { // Correct player sent TRICK.
         bool correct = is_trick_correct(game, mess.trick, i);
-        if (!correct) {
+        if (!correct || mess.trick.trick_number != game->act_trick.trick_number) {
             // If player has chosen wrong card then send WRONG message.
             // We don't reset timeout here, because we ignore this 
             // wrong message and wait for the correct one.
@@ -313,6 +313,10 @@ int main(int argc, char* argv[]) {
 
     int socket_fd = socket(AF_INET6, SOCK_STREAM, 0);
     if (socket_fd < 0) syserr("socket");
+
+    int tmp = 1;
+    if (setsockopt(socket_fd, SOL_SOCKET, SO_REUSEADDR, &tmp, sizeof(int)) < 0)
+        syserr("setsockopt");
 
     if (bind(socket_fd, (sockaddr*)&server_address, sizeof(server_address)) < 0) syserr("bind"); // TODO: jak zrobic, zeby sluchac na wszystkich portach?
     if (listen(socket_fd, QUEUE_LENGTH) < 0) syserr("listen");

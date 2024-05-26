@@ -27,7 +27,7 @@ Trick play_a_card(shared_ptr<Game_stage_client> game, Trick trick) {
         for (Card card : game->act_deal.cards)
             if (card.value < min_card.value)
                 min_card = card;
-        Trick res = {.trick_number = 1, .cards = {min_card}};
+        Trick res = {.trick_number = trick.trick_number, .cards = {min_card}};
         return res;
     }
 

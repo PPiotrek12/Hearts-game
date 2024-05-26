@@ -27,6 +27,7 @@ int find_looser_and_update_scores(shared_ptr<Game_stage_server> game) {
                 act_trick.cards[i].value > act_trick.cards[looser].value)
             looser = i;
     }
+    looser = (looser + game->act_deal.first_player) % 4;
     int p[8] = {0, 1, 0, 0, 0, 0, 0, 0};
     for (int i = 0; i < (int)act_trick.cards.size(); i++) {
         if (act_trick.cards[i].color == 'H') p[2]++;

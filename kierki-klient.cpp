@@ -63,6 +63,7 @@ void parse_arguments(int argc, char* argv[], const char **host, uint16_t *port, 
 void process_busy_message(shared_ptr<Game_stage_client> game, Busy busy) {
     if (!game->first_message) wrong_msg;
     if (!game->is_auto_player) cout << busy.describe();
+    game->first_message = false;
 }
 
 void process_deal_message(shared_ptr<Game_stage_client> game, Deal deal) {
@@ -70,13 +71,13 @@ void process_deal_message(shared_ptr<Game_stage_client> game, Deal deal) {
     
     if (game->first_message) game->receive_previous_taken = true;
     else game->receive_previous_taken = false;
+    game->first_message = false;
 
     if (!game->is_auto_player) cout << deal.describe();
     game->was_total = false;
     game->was_score = false;
     game->in_deal = true;
     game->act_deal = deal;
-    game->first_message = false;
     game->act_trick_number = 0;
 }
 
@@ -98,7 +99,6 @@ void process_trick_message(shared_ptr<Game_stage_client> game, Trick trick) {
         Trick response = play_a_card(game, trick);
         message move = {.trick = response, .is_trick = true};
         send_message(game->socket_fd, move, game->is_auto_player);
-        game->remove_card(move.trick.cards);
     }
 }
 
@@ -111,6 +111,7 @@ void process_wrong_message(shared_ptr<Game_stage_client> game, Wrong wrong) {
         cout << wrong.describe();
         game->waiting_for_card = true;
         game->ask_for_a_card();
+        fflush(stdout);
     }
 }
 
@@ -124,26 +125,27 @@ void process_taken_message(shared_ptr<Game_stage_client> game, Taken taken) {
     if(game->waiting_for_card) wrong_msg;
 
     if (!game->is_auto_player) cout << taken.describe();
-    if (!game->in_trick && game->receive_previous_taken) // Remove cards from previous trick.
-        game->remove_card(taken.cards);
+    game->remove_card(taken.cards);
     game->act_trick_number = taken.trick_number;
     game->in_trick = false;
     game->all_taken.push_back(taken);
 }
 
 void process_score_message(shared_ptr<Game_stage_client> game, Score score) {
-    if (!game->in_deal || game->in_trick) wrong_msg;
+    if (game->in_trick) wrong_msg;
 
     if (!game->is_auto_player) cout << score.describe();
-    game->was_score = true;
     game->all_taken.clear();
     game->in_deal = false;
+    game->was_score = true;
 }
 
 void process_total_message(shared_ptr<Game_stage_client> game, Score total) {
-    if (game->in_deal || game->in_trick) wrong_msg;
+    if (game->in_trick) wrong_msg;
 
     if (!game->is_auto_player) cout << total.describe();
+    game->all_taken.clear();
+    game->in_deal = false;
     game->was_total = true;
 }
 
@@ -179,12 +181,12 @@ void receive_user_message(shared_ptr<Game_stage_client> game) {
         Trick response = Trick{.trick_number = game->act_trick_number, .cards = choice};
         message move = {.trick = response, .is_trick = true};
         send_message(game->socket_fd, move, game->is_auto_player);
-        game->remove_card(move.trick.cards);
         game->waiting_for_card = false;
     }
     else {
         cout << "Wrong command.\n";
         if (game->waiting_for_card) game->ask_for_a_card();
+        fflush(stdout);
     }
 }
 

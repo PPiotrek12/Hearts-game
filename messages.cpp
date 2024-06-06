@@ -81,9 +81,12 @@ int read_message(int fd, string *buffer, bool is_auto_player) {
     if (length == 0) return 0;
     *buffer += string(act, length);
     string current_time = get_current_time();
-    if (is_auto_player)
+    if (is_auto_player) {
         cout << "[" << peer_address(fd) << "," << local_address(fd) 
-             << "," << current_time << "] " << string(act, length); // TODO: czy tu nie powinno byc entera?
+             << "," << current_time << "] " << string(act, length);
+        if (act[length - 1] != '\n') cout << "\n";
+        fflush(stdout);
+    }
     return length;
 }
 
@@ -111,9 +114,11 @@ void send_message(int fd, message mess, bool is_auto_player) {
     if (writen(fd, (char*)to_send.c_str(), to_send.size()) < 0)
         syserr("write");
     string current_time = get_current_time();
-    if (is_auto_player)
+    if (is_auto_player) {
         cout << "[" << local_address(fd) << "," << peer_address(fd) 
              << "," << current_time << "] " << to_send; // TODO: czy tu nie powinno byc entera?
+        fflush(stdout);
+    }
 }
 
 int seat_to_int(char seat) {

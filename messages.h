@@ -110,7 +110,7 @@ struct Deal {
         return res;
     }
     string describe() {
-        string res = "New deal " + to_string(deal_type) + ": starting place "
+        string res = "New deal " + to_string(deal_type) + ": staring place "
                      + string(1, first_player) + ", your cards: ";
         for (int i = 0; i < (int)cards.size(); i++) {
             res += cards[i].to_str();
@@ -167,7 +167,7 @@ struct Trick {
             res += avaible_cards[i].to_str();
             if (i != (int)avaible_cards.size() - 1) res += ", ";
         }          
-        res += ".\n";
+        res += "\n";
         return res;
     }
 };
@@ -242,18 +242,21 @@ struct Taken {
     }
 };
 
-// Struct representing a SCORE message.
+// Struct representing a SCORE and TAKEN message.
 struct Score {
     vector <int> scores = {0, 0, 0, 0};
     vector <char> players = {'N', 'E', 'S', 'W'};
     bool is_total = false;
     void parse(string mess, bool total = false) {
+        scores.clear();
+        players.clear();
         is_total = total;
         int last_palyer = -1;
         for (int i = 0; i < (int)mess.size(); i++) {
             if (mess[i] == 'E' || mess[i] == 'N' || mess[i] == 'W' || mess[i] == 'S') {
                 if (last_palyer != -1)
-                    scores.push_back(atoi(mess.substr(last_palyer + 1, i - last_palyer - 1).c_str()));
+                    scores.push_back(atoi(
+                        mess.substr(last_palyer + 1, i - last_palyer - 1).c_str()));
                 last_palyer = i;
                 players.push_back(mess[i]);
             }
@@ -263,7 +266,7 @@ struct Score {
     string to_message() {
         string res;
         if (is_total) res = "TOTAL";
-        else res = "SCORE";
+        else res = "SCORE"; 
         for (int i = 0; i < (int)scores.size(); i++) {
             res += string(1, players[i]);
             res += to_string(scores[i]);

@@ -155,6 +155,7 @@ void receive_from_not_playing(shared_ptr <Listener> listener,
                 continue;
             }
             message mess = parse_message(&(listener->clients[i].buffer));
+            if (mess.empty) continue;
             while (!mess.empty) { // Process all messages from the client.
                 proceed_message_from_not_playing(mess, listener, game, i);
                 mess = parse_message(&(listener->clients[i].buffer));
@@ -243,7 +244,7 @@ void receive_from_playing(shared_ptr <Listener> listener,
                 game->game_stopped = true;
                 continue;
             }
-            message mess = parse_message(&(listener->clients[i].buffer));
+            message mess = parse_message(&(listener->clients[i].buffer)); // TODO: empty!!!
             while (!mess.empty) {
                 proceed_message_from_playing(mess, listener, game, i);
                 mess = parse_message(&(listener->clients[i].buffer));

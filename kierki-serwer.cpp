@@ -21,7 +21,7 @@
 
 using namespace std;
 
-const int QUEUE_LENGTH = 50;
+const int QUEUE_LENGTH = 200;
 
 void wrong_msg(int fd) {
     err("wrong message from client - closing connection");
@@ -29,7 +29,6 @@ void wrong_msg(int fd) {
 }
 
 void parse_arguments(int argc, char* argv[], uint16_t *port, bool *wasPortSet, string *file, int *timeout) {
-    *timeout = 5;
     bool wasFileSet = false;
     for (int i = 1; i < argc; i++) {
         string arg = argv[i];
@@ -75,17 +74,16 @@ void accept_new_client(shared_ptr<Listener> listener, int timeout) {
 
 // Closes all connections.
 void end_game(shared_ptr<Listener> listener) {
-    for (int i = 0; i < 4; i++) close(listener->clients[i].fd);
+    for (int i = 0; i < 4; i++) {
+        if (listener->clients[i].fd != -1)
+            close(listener->clients[i].fd);
+    }
     close(listener->accepts.fd);
-    for (int i = 4; i < (int)listener->clients.size(); i++) close(listener->clients[i].fd);
+    for (int i = 4; i < (int)listener->clients.size(); i++) {
+        if (listener->clients[i].fd != -1)
+            close(listener->clients[i].fd);
+    }
     exit(0);
-}
-
-void rejoined(int fd, int seat, shared_ptr<Game_stage_server> game) {
-    game->game_stopped = false;
-    message mess = {.deal = game->act_deal.deals[seat], .is_deal = true};
-    send_message(fd, mess);
-    game->send_all_taken(fd);
 }
 
 void new_trick(shared_ptr<Listener> listener, shared_ptr<Game_stage_server> game, int first) {
@@ -109,6 +107,13 @@ void new_deal(shared_ptr<Listener> listener, shared_ptr<Game_stage_server> game)
     // Starting the first trick.
     game->act_trick.trick_number = 0;
     new_trick(listener, game, game->act_deal.first_player);
+}
+
+void rejoined(int fd, int seat, shared_ptr<Game_stage_server> game) {
+    game->game_stopped = false;
+    message mess = {.deal = game->act_deal.deals[seat], .is_deal = true};
+    send_message(fd, mess);
+    game->send_all_taken(fd);
 }
 
 void proceed_message_from_not_playing(message mess, shared_ptr<Listener> listener,
@@ -149,16 +154,12 @@ void receive_from_not_playing(shared_ptr <Listener> listener,
         }
         if (listener->clients[i].revents & (POLLIN | POLLERR)) {
             int length = read_message(listener->clients[i].fd, &(listener->clients[i].buffer));
-            if (!length) { // Client disconnected.
-                listener->clients.erase(listener->clients.begin() + i);
-                i--;
-                continue;
-            }
-            message mess = parse_message(&(listener->clients[i].buffer));
-            if (mess.empty) continue;
-            while (!mess.empty) { // Process all messages from the client.
+            if (!length) // Client disconnected.
+                close(listener->clients[i].fd);
+            else {
+                message mess = parse_message(&(listener->clients[i].buffer));
+                if (mess.empty) continue;
                 proceed_message_from_not_playing(mess, listener, game, i);
-                mess = parse_message(&(listener->clients[i].buffer));
             }
             listener->clients.erase(listener->clients.begin() + i);
             i--;
@@ -183,7 +184,7 @@ void ask_next_player(shared_ptr<Listener> listener, shared_ptr<Game_stage_server
             send_message(listener->clients[i].fd, mess);
 
         if (game->act_deal.deals[0].cards.empty()) { // End of the deal.
-            // Sending SCORE messages and starting new deal.
+            // Sending SCORE and TOTAL messages and starting new deal.
             message score = {.score = game->act_deal.scores, .is_score = true};
             message total = {.total = game->total_scores, .is_total = true};
             for (int i = 0; i < 4; i++) {
@@ -242,12 +243,13 @@ void receive_from_playing(shared_ptr <Listener> listener,
                 game->occupied[i] = false;
                 game->how_many_occupied--;
                 game->game_stopped = true;
-                continue;
             }
-            message mess = parse_message(&(listener->clients[i].buffer)); // TODO: empty!!!
-            while (!mess.empty) {
-                proceed_message_from_playing(mess, listener, game, i);
-                mess = parse_message(&(listener->clients[i].buffer));
+            else {
+                message mess = parse_message(&(listener->clients[i].buffer));
+                while (!mess.empty) {
+                    proceed_message_from_playing(mess, listener, game, i);
+                    mess = parse_message(&(listener->clients[i].buffer));
+                }
             }
         }
     }
@@ -267,7 +269,6 @@ void main_server_loop(int socket_fd, Game_scenario game_scenario, int timeout) {
 
     while (true) {
         listener->wrapped_poll(game->game_stopped);
-
         if (listener->accepts.revents & (POLLIN | POLLERR)) // New client is connecting.
             accept_new_client(listener, game->timeout);
 
@@ -280,13 +281,13 @@ int main(int argc, char* argv[]) {
     signal(SIGPIPE, SIG_IGN);
     uint16_t port;
     string file;
-    int timeout;
+    int timeout = 5;
     bool wasPortSet = false;
     parse_arguments(argc, argv, &port, &wasPortSet, &file, &timeout);
     Game_scenario game_scenario;
     game_scenario.parse(file); // Read game scenario from file.
 
-    sockaddr_in6 server_address{};
+    sockaddr_in6 server_address;
     server_address.sin6_family = AF_INET6;
     server_address.sin6_addr = in6addr_any;
     if (wasPortSet) server_address.sin6_port = htons(port);
@@ -302,4 +303,5 @@ int main(int argc, char* argv[]) {
     if (listen(socket_fd, QUEUE_LENGTH) < 0) syserr("listen");
 
     main_server_loop(socket_fd, game_scenario, timeout);
+    return 0;
 }

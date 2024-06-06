@@ -14,7 +14,7 @@
 
 using namespace std;
 
-// Wrapper of pollfd structure with timeout in milliseconds.
+// Wrapper of pollfd structure with timeout in milliseconds and buffer for reading messages.
 struct Timeout_fd {
     int fd;
     int timeout; // In milliseconds, -1 if no timeout.
@@ -35,7 +35,7 @@ struct Listener {
         int min_timeout = -1;
         for (int i = 0; i < (int)clients.size(); i++) {
             if (game_stopped && i < 4) // Do not poll players when game stopped.
-                fds[i + 1] = {.fd = -1, .events = POLLIN, .revents = 0}; 
+                fds[i + 1] = {.fd = -1, .events = 0, .revents = 0}; 
             else {
                 fds[i + 1] = {.fd = clients[i].fd, .events = POLLIN, .revents = 0};
                 if (clients[i].timeout >= 0) {
@@ -45,13 +45,14 @@ struct Listener {
             }
         }
         for (int i = 0; i < (int)clients.size() + 1; i++) { 
-            if (fds[i].fd != -1 && fcntl(fds[i].fd, F_SETFL, O_NONBLOCK) < 0) // TODO: czy to potrzebne?
+            if (fds[i].fd != -1 && fcntl(fds[i].fd, F_SETFL, O_NONBLOCK) < 0)
                 syserr("fcntl"); // Set non-blocking mode.
             fds[i].revents = 0;
         }
 
         // Start measuring time.
         auto beg_time = chrono::system_clock::now();
+
         int poll_status = poll(fds, clients.size() + 1, min_timeout);
         if (poll_status < 0) syserr("poll");
 

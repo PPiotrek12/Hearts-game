@@ -26,22 +26,24 @@ bool is_trick_correct(shared_ptr<Game_stage_server> game, Trick trick, int playe
     if (trick.trick_number != game->act_trick.trick_number) return 0;
     Card played_card = trick.cards[0];
     vector <Card> possible_to_play;
-    if (game->act_trick.cards.empty()) possible_to_play = game->act_deal.deals[player].cards;
+    if (game->act_trick.cards.empty()) 
+        possible_to_play = game->act_deal.deals[player].cards;
     else {
         char color = game->act_trick.cards[0].color;
         for (Card card : game->act_deal.deals[player].cards)
             if (card.color == color)
                 possible_to_play.push_back(card);
-        if (possible_to_play.empty()) possible_to_play = game->act_deal.deals[player].cards;
+        if (possible_to_play.empty()) 
+            possible_to_play = game->act_deal.deals[player].cards;
     }
     bool played_correctly = false;
     for (int i = 0; i < (int)possible_to_play.size(); i++) {
         Card act_card = possible_to_play[i];
-        // If the card is the played correctly then remove it from the player's hand.
         if (act_card.value == played_card.value && act_card.color == played_card.color)
             played_correctly = true;
     }
     if (!played_correctly) return 0;
+    // If the card is the played correctly then remove it from the player's hand.
     for (int i = 0; i < (int)game->act_deal.deals[player].cards.size(); i++) {
         Card act_card = game->act_deal.deals[player].cards[i];
         if (act_card.value == played_card.value && act_card.color == played_card.color) {

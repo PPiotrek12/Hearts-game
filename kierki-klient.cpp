@@ -207,7 +207,7 @@ void main_client_loop(pollfd *fds, bool is_auto, char seat) {
         if (poll_status == 0) continue;
         if (fds[0].revents & (POLLIN | POLLERR)) // Server message.
             receive_server_message(game, fds);
-        if (!is_auto && (fds[1].revents & POLLIN)) // User input.
+        if (!is_auto && (fds[1].revents & (POLLIN | POLLERR))) // User input.
             receive_user_message(game);
     }
 }

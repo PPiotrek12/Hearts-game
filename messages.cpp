@@ -63,9 +63,13 @@ string peer_address(int fd) {
 string get_current_time() {
     auto now = chrono::system_clock::now();
     time_t time = chrono::system_clock::to_time_t(now);
-    char buffer[50];
-    strftime(buffer, sizeof(buffer), "%Y-%m-%dT%H:%M:%S.000", localtime(&time));
-    return string(buffer);
+    char buffer[100];
+    int milisec = chrono::duration_cast<chrono::milliseconds>
+                  (now.time_since_epoch()).count() % 1000;
+    strftime(buffer, sizeof(buffer), "%Y-%m-%dT%H:%M:%S.", localtime(&time));
+    string res = buffer;
+    res += to_string(milisec);
+    return res;
 }
 
 const int MAX_SIZE = 1000;

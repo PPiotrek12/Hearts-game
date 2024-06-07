@@ -135,10 +135,11 @@ void proceed_message_from_not_playing(message mess, shared_ptr<Listener> listene
             listener->clients[seat] = listener->clients[i];
             listener->clients[seat].timeout = -1;
             listener->clients[seat].revents = 0;
-            if (game->how_many_occupied == 4) {
-                if (game->game_started) // Resuming the game.    
-                    rejoined(listener->clients[seat].fd, seat, game);
-                else { // Starting the game.
+            if (game->game_started) // Resuming the game.
+                rejoined(listener->clients[seat].fd, seat, game);
+            else {
+                if (game->how_many_occupied == 4) {
+                    // Starting the game.
                     game->game_started = true;
                     new_deal(listener, game);
                 }

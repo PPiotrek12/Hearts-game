@@ -95,11 +95,7 @@ void send_message(int fd, message mess, string peer_addr, bool is_auto_player) {
     string to_send = mess.to_message();
     int length = writen(fd, (char*)to_send.c_str(), to_send.size());
     if (length < 0) {
-        if (errno == ECONNRESET) {
-            cout<<"UWAGA: rozlaczenie klienta rozpoznane w write, co sie stanie????\n";
-            fflush(stdout);
-            return;
-        }
+        if (errno == ECONNRESET) return;
         syserr("write");
     }
         

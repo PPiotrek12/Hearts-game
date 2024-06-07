@@ -278,7 +278,6 @@ void receive_from_playing(shared_ptr <Listener> listener,
 
 // Main server loop. It listens on the socket_fd for new connections and on clients for messages.
 void main_server_loop(int socket_fd, Game_scenario game_scenario, int timeout) {
-    cout<<"XD";
     shared_ptr<Game_stage_server> game = make_shared<Game_stage_server>();
     game->game_scenario = game_scenario;
     game->timeout = timeout * 1000;

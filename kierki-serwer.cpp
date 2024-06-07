@@ -114,7 +114,8 @@ void new_deal(shared_ptr<Listener> listener, shared_ptr<Game_stage_server> game)
 
 void rejoined(int fd, int seat, shared_ptr<Game_stage_server> game) {
     game->game_stopped = false;
-    message mess = {.deal = game->act_deal.deals[seat], .is_deal = true};
+    message mess = {.deal = game->game_scenario.deals[game->deal_number].deals[seat], 
+                    .is_deal = true};
     send_message(fd, mess);
     game->send_all_taken(fd);
 }

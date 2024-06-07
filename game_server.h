@@ -65,7 +65,7 @@ struct Listener {
         // Update timeouts and revents.
         accepts.revents = fds[0].revents;
         for (int i = 0; i < (int)clients.size(); i++) {
-            if (game_stopped && i < 4) // Do not update players when game stopped.
+            if (game_stopped && i < 4) continue; // Do not update players when game stopped.
             if (clients[i].timeout != -1) clients[i].timeout -= milliseconds;
             clients[i].revents = fds[i + 1].revents;
         }

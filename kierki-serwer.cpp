@@ -51,7 +51,10 @@ void parse_arguments(int argc, char* argv[], uint16_t *port, bool *wasPortSet, s
         else if (arg == "-t") {
             if (i + 1 >= argc) fatal("missing argument for -t");
             else {
-                *timeout = stoi(argv[i + 1]);
+                string timeout_str = argv[i + 1];
+                for (char c : timeout_str)
+                    if (!isdigit(c)) fatal("timeout must be a number");
+                *timeout = stoi(timeout_str);
                 i++;
             }
         }

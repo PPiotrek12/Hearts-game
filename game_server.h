@@ -20,6 +20,7 @@ struct Timeout_fd {
     int timeout; // In milliseconds, -1 if no timeout.
     int revents;
     string buffer;
+    string addr;
 };
 
 // Structure for listening on multiple file descriptors with timeouts. It holds a vector of clients
@@ -64,7 +65,7 @@ struct Listener {
         // Update timeouts and revents.
         accepts.revents = fds[0].revents;
         for (int i = 0; i < (int)clients.size(); i++) {
-            if (game_stopped && i < 4) continue; // Do not update players when game stopped.
+            if (game_stopped && i < 4) // Do not update players when game stopped.
             if (clients[i].timeout != -1) clients[i].timeout -= milliseconds;
             clients[i].revents = fds[i + 1].revents;
         }
@@ -74,13 +75,13 @@ struct Listener {
 // Struct representing a specific trick for all players.
 struct Trick_server: Trick {
     int how_many_played = 0, act_player = -1;
-    void send_trick(int fd) {
+    void send_trick(int fd, string addr) {
         message mess = {.trick = *this, .is_trick = true};
-        send_message(fd, mess);
+        send_message(fd, mess, addr);
     }
-    void send_wrong(int fd) {
+    void send_wrong(int fd, string addr) {
         message mess = {.wrong = {.trick_number = trick_number}, .is_wrong = true};
-        send_message(fd, mess);
+        send_message(fd, mess, addr);
     }
 };
 
@@ -101,7 +102,7 @@ struct Deal_server {
     void send_deals(shared_ptr<Listener> listener) {
         for (int i = 0; i < 4; i++) {
             message mess = {.deal = deals[i], .is_deal = true};
-            send_message(listener->clients[i].fd, mess);
+            send_message(listener->clients[i].fd, mess, listener->clients[i].addr);
         }
     }
 };
@@ -146,20 +147,20 @@ struct Game_stage_server {
 
     Game_scenario game_scenario;
 
-    void send_busy(int fd) {
+    void send_busy(int fd, string addr) {
         Busy busy;
         vector <char> seats;
         for (int i = 0; i < 4; i++)
             if (occupied[i]) seats.push_back(int_to_seat(i));
         busy.players = seats;
         message mess = {.busy = busy, .is_busy = true};
-        send_message(fd, mess);
+        send_message(fd, mess, addr);
     }
 
-    void send_all_taken(int fd) {
+    void send_all_taken(int fd, string addr) {
         for (int i = 0; i < (int)all_taken.size(); i++) {
             message mess = {.taken = all_taken[i], .is_taken = true};
-            send_message(fd, mess);
+            send_message(fd, mess, addr);
         }
     }
 };

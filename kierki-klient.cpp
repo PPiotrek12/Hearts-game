@@ -60,6 +60,8 @@ void parse_arguments(int argc, char* argv[], const char **host, uint16_t *port, 
     if (!wasSeatSet) fatal("missing seat argument");    
 }
 
+string address_port;
+
 void process_busy_message(shared_ptr<Game_stage_client> game, Busy busy) {
     if (!game->first_message) wrong_msg;
     if (!game->is_auto_player) cout << busy.describe();
@@ -99,7 +101,7 @@ void process_trick_message(shared_ptr<Game_stage_client> game, Trick trick) {
     else { // Auto player.
         Trick response = play_a_card(game, trick);
         message move = {.trick = response, .is_trick = true};
-        send_message(game->socket_fd, move, game->is_auto_player);
+        send_message(game->socket_fd, move, address_port, game->is_auto_player);
     }
 }
 
@@ -157,7 +159,7 @@ void receive_server_message(shared_ptr<Game_stage_client> game, pollfd *fds) {
         if (game->was_total && game->was_score) exit(0);
         else exit(1);
     }
-    message mess = parse_message(fds[0].fd, &(game->buffer_from_server), game->is_auto_player);
+    message mess = parse_message(fds[0].fd, &(game->buffer_from_server), address_port, game->is_auto_player);
     while (!mess.empty) {
         if (mess.is_busy) process_busy_message(game, mess.busy);
         if (mess.is_deal) process_deal_message(game, mess.deal);
@@ -166,7 +168,8 @@ void receive_server_message(shared_ptr<Game_stage_client> game, pollfd *fds) {
         if (mess.is_taken) process_taken_message(game, mess.taken);
         if (mess.is_score) process_score_message(game, mess.score);
         if (mess.is_total) process_total_message(game, mess.total);
-        mess = parse_message(fds[0].fd, &(game->buffer_from_server), game->is_auto_player);
+        mess = parse_message(fds[0].fd, &(game->buffer_from_server), 
+                             address_port, game->is_auto_player);
     }
 }
 
@@ -181,7 +184,7 @@ void receive_user_message(shared_ptr<Game_stage_client> game) {
         vector <Card> choice = {Card(input.substr(1, input.size() - 1))};
         Trick response = Trick{.trick_number = game->act_trick_number, .cards = choice};
         message move = {.trick = response, .is_trick = true};
-        send_message(game->socket_fd, move, game->is_auto_player);
+        send_message(game->socket_fd, move, address_port, game->is_auto_player);
         game->waiting_for_card = false;
     }
     else {
@@ -197,7 +200,7 @@ void main_client_loop(pollfd *fds, bool is_auto, char seat) {
     game->socket_fd = fds[0].fd;
 
     message iam = {.iam = {.player = seat}, .is_iam = true};
-    send_message(fds[0].fd, iam, game->is_auto_player);
+    send_message(fds[0].fd, iam, address_port, game->is_auto_player);
     int fds_nr = 2;
     if (is_auto) fds_nr = 1;
 
@@ -225,18 +228,24 @@ int main(int argc, char* argv[]) {
     sockaddr_in6 address6;
     int res = get_server_address(host, port, useIPv4, useIPv6, &address4, &address6);
     int socket_fd = 0;
+    char address[INET6_ADDRSTRLEN];
     if (res == AF_INET6) {
         socket_fd = socket(AF_INET6, SOCK_STREAM, 0);
         if (socket_fd == -1) syserr("socket");
         if (connect(socket_fd, (struct sockaddr *)&address6, (socklen_t)sizeof(address6)) < 0)
             syserr("connect");
+        inet_ntop(AF_INET6, &address6.sin6_addr, address, INET6_ADDRSTRLEN);
+        port = ntohs(address6.sin6_port);
     }
     else {
         socket_fd = socket(AF_INET, SOCK_STREAM, 0);
         if (socket_fd == -1) syserr("socket");
         if (connect(socket_fd, (struct sockaddr *)&address4, (socklen_t)sizeof(address4)) < 0)
             syserr("connect");
+        inet_ntop(AF_INET, &address4.sin_addr, address, INET6_ADDRSTRLEN);
+        port = ntohs(address4.sin_port);
     }
+    address_port = address + string(":") + to_string(port);
 
     pollfd fds[2]; // The first socket is the server socket and the second is the standard input.
     fds[0].fd = socket_fd;

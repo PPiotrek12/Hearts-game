@@ -340,8 +340,8 @@ struct message {
 };
 
 int read_message(int fd, string *buffer);
-message parse_message(int fd, string *buffer, bool is_auto_player = true);
-void send_message(int fd, message mess, bool is_auto_player = true);
+message parse_message(int fd, string *buffer, string peer_addr, bool is_auto_player = true);
+void send_message(int fd, message mess, string peer_addr, bool is_auto_player = true);
 int seat_to_int(char seat);
 char int_to_seat(int seat);
 

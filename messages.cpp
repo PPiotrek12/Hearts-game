@@ -37,28 +37,6 @@ string local_address(int fd) {
     return res;
 }
 
-// Function giving the peer address of the socket.
-string peer_address(int fd) {
-    struct sockaddr_storage peer_addr;
-    socklen_t addr_len = sizeof(peer_addr);
-    if (getpeername(fd, (struct sockaddr *)&peer_addr, &addr_len) == -1) syserr("getpeername");
-    char peer_ip[INET6_ADDRSTRLEN];
-    uint16_t peer_port;
-    if (peer_addr.ss_family == AF_INET) {
-        struct sockaddr_in *peer_addr_ipv4 = (struct sockaddr_in *)&peer_addr;
-        inet_ntop(AF_INET, &(peer_addr_ipv4->sin_addr), peer_ip, INET_ADDRSTRLEN);
-        peer_port = ntohs(peer_addr_ipv4->sin_port);
-    } else {
-        struct sockaddr_in6 *peer_addr_ipv6 = (struct sockaddr_in6 *)&peer_addr;
-        inet_ntop(AF_INET6, &(peer_addr_ipv6->sin6_addr), peer_ip, INET6_ADDRSTRLEN);
-        peer_port = ntohs(peer_addr_ipv6->sin6_port);
-    }
-    string res = peer_ip;
-    res += ":";
-    res += to_string(peer_port);
-    return res;
-}
-
 // Get the current time.
 string get_current_time() {
     auto now = chrono::system_clock::now();
@@ -79,13 +57,16 @@ const int MAX_SIZE = 1000;
 int read_message(int fd, string *buffer) {
     char act[MAX_SIZE];
     int length = read(fd, act, MAX_SIZE);
-    if (length < 0) syserr("read");
+    if (length < 0) {
+        if (errno == ECONNRESET) return 0;
+        syserr("read");
+    }
     if (length == 0) return 0;
     *buffer += string(act, length);
     return length;
 }
 
-message parse_message(int fd, string *buffer, bool is_auto_player) {
+message parse_message(int fd, string *buffer, string peer_addr, bool is_auto_player) {
     // Extract the first message from the buffer - up to the first "\r\n".
     string mess;
     for (int i = 0; i < (int)buffer->size(); i++) {
@@ -102,7 +83,7 @@ message parse_message(int fd, string *buffer, bool is_auto_player) {
     }
     string current_time = get_current_time();
     if (is_auto_player) {
-        cout << "[" << peer_address(fd) << "," << local_address(fd) 
+        cout << "[" << peer_addr << "," << local_address(fd) 
              << "," << current_time << "] " << mess << "\r\n";
         fflush(stdout);
     }
@@ -110,13 +91,21 @@ message parse_message(int fd, string *buffer, bool is_auto_player) {
     return res;
 }
 
-void send_message(int fd, message mess, bool is_auto_player) {
+void send_message(int fd, message mess, string peer_addr, bool is_auto_player) {
     string to_send = mess.to_message();
-    if (writen(fd, (char*)to_send.c_str(), to_send.size()) < 0)
+    int length = writen(fd, (char*)to_send.c_str(), to_send.size());
+    if (length < 0) {
+        if (errno == ECONNRESET) {
+            cout<<"UWAGA: rozlaczenie klienta rozpoznane w write, co sie stanie????\n";
+            fflush(stdout);
+            return;
+        }
         syserr("write");
+    }
+        
     string current_time = get_current_time();
     if (is_auto_player) {
-        cout << "[" << local_address(fd) << "," << peer_address(fd) 
+        cout << "[" << local_address(fd) << "," << peer_addr
              << "," << current_time << "] " << to_send; // TODO: czy tu nie powinno byc entera?
         fflush(stdout);
     }

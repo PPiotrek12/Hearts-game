@@ -65,13 +65,19 @@ void parse_arguments(int argc, char* argv[], uint16_t *port, bool *wasPortSet, s
 
 // Accept new client and add it to the list of clients.
 void accept_new_client(shared_ptr<Listener> listener, int timeout) {
-    sockaddr_in client_address;
+    sockaddr_in6 client_address;
     socklen_t client_address_len = sizeof(client_address);
     int client_fd = accept(listener->accepts.fd, (sockaddr*)&client_address, 
                                                             &client_address_len);
     if (client_fd < 0) syserr("accept");
+    char address[INET6_ADDRSTRLEN];
+    inet_ntop(AF_INET6, &(client_address.sin6_addr), address, INET6_ADDRSTRLEN);
+    string address_port = address;
+    address_port += ":";
+    address_port += to_string(ntohs(client_address.sin6_port));
+
     // Add new client to the list with default timeout.
-    Timeout_fd new_client = {client_fd, timeout, 0, ""};
+    Timeout_fd new_client = {client_fd, timeout, 0, "", address_port};
     listener->clients.push_back(new_client);
 }
 
@@ -94,7 +100,7 @@ void new_trick(shared_ptr<Listener> listener, shared_ptr<Game_stage_server> game
     game->act_trick.cards.clear();
     game->act_trick.how_many_played = 0;
     game->act_trick.act_player = first;
-    game->act_trick.send_trick(listener->clients[first].fd);
+    game->act_trick.send_trick(listener->clients[first].fd, listener->clients[first].addr);
     listener->clients[first].timeout = game->timeout;
 }
 
@@ -112,12 +118,13 @@ void new_deal(shared_ptr<Listener> listener, shared_ptr<Game_stage_server> game)
     new_trick(listener, game, game->act_deal.first_player);
 }
 
-void rejoined(int fd, int seat, shared_ptr<Game_stage_server> game) {
-    game->game_stopped = false;
+void rejoined(int fd, string addr, int seat, shared_ptr<Game_stage_server> game) {
+    if (game->how_many_occupied == 4)
+        game->game_stopped = false;
     message mess = {.deal = game->game_scenario.deals[game->deal_number].deals[seat], 
                     .is_deal = true};
-    send_message(fd, mess);
-    game->send_all_taken(fd);
+    send_message(fd, mess, addr);
+    game->send_all_taken(fd, addr);
 }
 
 void proceed_message_from_not_playing(message mess, shared_ptr<Listener> listener,
@@ -127,7 +134,7 @@ void proceed_message_from_not_playing(message mess, shared_ptr<Listener> listene
         wrong_msg(listener->clients[i].fd);
     else { // Received IAM message, new we need to check if the seat is free.
         if (game->occupied[seat]) {
-            game->send_busy(listener->clients[i].fd);
+            game->send_busy(listener->clients[i].fd, listener->clients[i].addr);
             close(listener->clients[i].fd);
         } else { // Seat is free.
             game->occupied[seat] = true;
@@ -136,7 +143,7 @@ void proceed_message_from_not_playing(message mess, shared_ptr<Listener> listene
             listener->clients[seat].timeout = -1;
             listener->clients[seat].revents = 0;
             if (game->game_started) // Resuming the game.
-                rejoined(listener->clients[seat].fd, seat, game);
+                rejoined(listener->clients[seat].fd, listener->clients[seat].addr, seat, game);
             else {
                 if (game->how_many_occupied == 4) {
                     // Starting the game.
@@ -162,7 +169,9 @@ void receive_from_not_playing(shared_ptr <Listener> listener,
             if (!length) // Client disconnected.
                 close(listener->clients[i].fd);
             else {
-                message mess = parse_message(listener->clients[i].fd, &(listener->clients[i].buffer));
+                message mess = parse_message(listener->clients[i].fd, 
+                                             &(listener->clients[i].buffer), 
+                                             listener->clients[i].addr);
                 if (mess.empty) continue;
                 proceed_message_from_not_playing(mess, listener, game, i);
             }
@@ -176,7 +185,8 @@ void ask_next_player(shared_ptr<Listener> listener, shared_ptr<Game_stage_server
     if (game->act_trick.how_many_played < 4) {
         game->act_trick.act_player = (game->act_trick.act_player + 1) % 4;
         listener->clients[game->act_trick.act_player].timeout = game->timeout;
-        game->act_trick.send_trick(listener->clients[game->act_trick.act_player].fd);
+        game->act_trick.send_trick(listener->clients[game->act_trick.act_player].fd, 
+                                   listener->clients[game->act_trick.act_player].addr);
     }
     else { // End of the trick.
         int looser = find_looser_and_update_scores(game);
@@ -186,15 +196,15 @@ void ask_next_player(shared_ptr<Listener> listener, shared_ptr<Game_stage_server
         game->all_taken.push_back(taken);
         message mess = {.taken = taken, .is_taken = true};
         for (int i = 0; i < 4; i++)
-            send_message(listener->clients[i].fd, mess);
+            send_message(listener->clients[i].fd, mess, listener->clients[i].addr);
 
         if (game->act_deal.deals[0].cards.empty()) { // End of the deal.
             // Sending SCORE and TOTAL messages and starting new deal.
             message score = {.score = game->act_deal.scores, .is_score = true};
             message total = {.total = game->total_scores, .is_total = true};
             for (int i = 0; i < 4; i++) {
-                send_message(listener->clients[i].fd, score);
-                send_message(listener->clients[i].fd, total);
+                send_message(listener->clients[i].fd, score, listener->clients[i].addr);
+                send_message(listener->clients[i].fd, total, listener->clients[i].addr);
             }
             new_deal(listener, game);
         }
@@ -207,7 +217,7 @@ void proceed_message_from_playing(message mess, shared_ptr<Listener> listener,
                                   shared_ptr<Game_stage_server> game, int i) {
     if (!mess.is_trick) { // Wrong message - closing connection and stopping the game.
         wrong_msg(listener->clients[i].fd);
-        listener->clients[i] = {-1, -1, 0, ""};
+        listener->clients[i] = {-1, -1, 0, "", ""};
         game->occupied[i] = false;
         game->how_many_occupied--;
         game->game_stopped = true;
@@ -215,14 +225,14 @@ void proceed_message_from_playing(message mess, shared_ptr<Listener> listener,
     }
     // Received TRICK message.
     if (i != game->act_trick.act_player) // Wrong player.
-        game->act_trick.send_wrong(listener->clients[i].fd);
+        game->act_trick.send_wrong(listener->clients[i].fd, listener->clients[i].addr);
     else { // Correct player sent TRICK.
         bool correct = is_trick_correct(game, mess.trick, i);
         if (!correct) {
             // If player has chosen wrong card then send WRONG message.
             // We don't reset timeout here, because we ignore this 
             // wrong message and wait for the correct one.
-            game->act_trick.send_wrong(listener->clients[i].fd);
+            game->act_trick.send_wrong(listener->clients[i].fd, listener->clients[i].addr);
         }
         else {
             listener->clients[i].timeout = -1;
@@ -237,24 +247,30 @@ void receive_from_playing(shared_ptr <Listener> listener,
         if (listener->clients[i].fd == -1) continue;
         // If timeout passed then resend TRICK message.
         if (i == game->act_trick.act_player && listener->clients[i].timeout <= 0) {
-            game->act_trick.send_trick(listener->clients[i].fd);
+            game->act_trick.send_trick(listener->clients[i].fd, listener->clients[i].addr);
             listener->clients[i].timeout = game->timeout; // Reset timeout.
             continue;
         }
         if (listener->clients[i].revents & (POLLIN | POLLERR)) {
+            fflush  (stdout);
             int length = read_message(listener->clients[i].fd, &(listener->clients[i].buffer));
             if (!length) { // Client disconnected.
-                listener->clients[i] = {-1, -1, 0, ""};
+                listener->clients[i] = {-1, -1, 0, "", ""};
                 game->occupied[i] = false;
                 game->how_many_occupied--;
                 if (game->game_started) game->game_stopped = true;
+                close(listener->clients[i].fd);
             }
-            else {
-                message mess = parse_message(listener->clients[i].fd, &(listener->clients[i].buffer));
-                while (!mess.empty) {
-                    proceed_message_from_playing(mess, listener, game, i);
-                    mess = parse_message(listener->clients[i].fd, &(listener->clients[i].buffer));
-                }
+        }
+    }
+    if (!game->game_stopped) { // TODO: tutaj zawartosc bufora chyba moze byc pominieta kiedys
+        for (int i = 0; i < 4; i++) {
+            message mess = parse_message(listener->clients[i].fd, &(listener->clients[i].buffer), 
+                                         listener->clients[i].addr);
+            while (!mess.empty) {
+                proceed_message_from_playing(mess, listener, game, i);
+                mess = parse_message(listener->clients[i].fd, &(listener->clients[i].buffer), 
+                                     listener->clients[i].addr);
             }
         }
     }
@@ -268,9 +284,9 @@ void main_server_loop(int socket_fd, Game_scenario game_scenario, int timeout) {
 
     // Create and fill Listener structure.
     shared_ptr<Listener> listener = make_shared<Listener>();
-    listener->accepts = {socket_fd, -1, 0, ""};
+    listener->accepts = {socket_fd, -1, 0, "", ""};
     for (int i = 0; i < 4; i++)
-        listener->clients.push_back({-1, -1, 0, ""});
+        listener->clients.push_back({-1, -1, 0, "", ""});
 
     while (true) {
         listener->wrapped_poll(game->game_stopped);
@@ -278,7 +294,8 @@ void main_server_loop(int socket_fd, Game_scenario game_scenario, int timeout) {
             accept_new_client(listener, game->timeout);
 
         receive_from_not_playing(listener, game);
-        receive_from_playing(listener, game);
+        if (!game->game_stopped)
+            receive_from_playing(listener, game);
     }
 }
 

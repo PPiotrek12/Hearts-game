@@ -51,7 +51,8 @@ struct Card {
 struct Iam {
     char player;
     void parse(string mess) {
-        player = mess[0];
+        if (mess.size() == 1) player = mess[0];
+        else player = 'X';
     }
     string to_message() {
         return "IAM" + string(1, player) + "\r\n";

@@ -68,7 +68,8 @@ void process_busy_message(shared_ptr<Game_stage_client> game, Busy busy) {
 
 void process_deal_message(shared_ptr<Game_stage_client> game, Deal deal) {
     if (game->in_deal) wrong_msg;
-    
+    if (!game->first_message && (!game->was_total || !game->was_score)) wrong_msg;
+
     if (game->first_message) game->receive_previous_taken = true;
     else game->receive_previous_taken = false;
     game->first_message = false;

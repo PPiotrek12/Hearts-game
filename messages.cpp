@@ -68,29 +68,24 @@ string get_current_time() {
                   (now.time_since_epoch()).count() % 1000;
     strftime(buffer, sizeof(buffer), "%Y-%m-%dT%H:%M:%S.", localtime(&time));
     string res = buffer;
-    res += to_string(milisec);
+    string milisec_str = to_string(milisec);
+    while ((int)milisec_str.size()< 3) milisec_str = "0" + milisec_str;
+    res += milisec_str;
     return res;
 }
 
 const int MAX_SIZE = 1000;
 // Function reading a message from the socket - reads it into the buffer.
-int read_message(int fd, string *buffer, bool is_auto_player) {
+int read_message(int fd, string *buffer) {
     char act[MAX_SIZE];
     int length = read(fd, act, MAX_SIZE);
     if (length < 0) syserr("read");
     if (length == 0) return 0;
     *buffer += string(act, length);
-    string current_time = get_current_time();
-    if (is_auto_player) {
-        cout << "[" << peer_address(fd) << "," << local_address(fd) 
-             << "," << current_time << "] " << string(act, length);
-        if (act[length - 1] != '\n') cout << "\n";
-        fflush(stdout);
-    }
     return length;
 }
 
-message parse_message(string *buffer) {
+message parse_message(int fd, string *buffer, bool is_auto_player) {
     // Extract the first message from the buffer - up to the first "\r\n".
     string mess;
     for (int i = 0; i < (int)buffer->size(); i++) {
@@ -104,6 +99,12 @@ message parse_message(string *buffer) {
     if (mess.empty()) { // There weren't any full messages in the buffer.
         res.empty = true;
         return res;
+    }
+    string current_time = get_current_time();
+    if (is_auto_player) {
+        cout << "[" << peer_address(fd) << "," << local_address(fd) 
+             << "," << current_time << "] " << mess << "\r\n";
+        fflush(stdout);
     }
     res.parse(mess);
     return res;

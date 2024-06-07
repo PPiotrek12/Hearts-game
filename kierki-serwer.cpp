@@ -160,7 +160,7 @@ void receive_from_not_playing(shared_ptr <Listener> listener,
             if (!length) // Client disconnected.
                 close(listener->clients[i].fd);
             else {
-                message mess = parse_message(&(listener->clients[i].buffer));
+                message mess = parse_message(listener->clients[i].fd, &(listener->clients[i].buffer));
                 if (mess.empty) continue;
                 proceed_message_from_not_playing(mess, listener, game, i);
             }
@@ -245,13 +245,13 @@ void receive_from_playing(shared_ptr <Listener> listener,
                 listener->clients[i] = {-1, -1, 0, ""};
                 game->occupied[i] = false;
                 game->how_many_occupied--;
-                game->game_stopped = true;
+                if (game->game_started) game->game_stopped = true;
             }
             else {
-                message mess = parse_message(&(listener->clients[i].buffer));
+                message mess = parse_message(listener->clients[i].fd, &(listener->clients[i].buffer));
                 while (!mess.empty) {
                     proceed_message_from_playing(mess, listener, game, i);
-                    mess = parse_message(&(listener->clients[i].buffer));
+                    mess = parse_message(listener->clients[i].fd, &(listener->clients[i].buffer));
                 }
             }
         }

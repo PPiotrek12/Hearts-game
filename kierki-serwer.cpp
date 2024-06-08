@@ -266,7 +266,7 @@ void receive_from_playing(shared_ptr <Listener> listener,
             }
         }
     }
-    if (!game->game_stopped) { // TODO: tutaj zawartosc bufora chyba moze byc pominieta kiedys
+    if (!game->game_stopped) {
         for (int i = 0; i < 4; i++) {
             message mess = parse_message(listener->clients[i].fd, &(listener->clients[i].buffer), 
                                          listener->clients[i].addr);
@@ -316,6 +316,7 @@ int main(int argc, char* argv[]) {
     server_address.sin6_family = AF_INET6;
     server_address.sin6_addr = in6addr_any;
     if (wasPortSet) server_address.sin6_port = htons(port);
+    else server_address.sin6_port = 0;
 
     int socket_fd = socket(AF_INET6, SOCK_STREAM, 0);
     if (socket_fd < 0) syserr("socket");
@@ -324,7 +325,7 @@ int main(int argc, char* argv[]) {
     if (setsockopt(socket_fd, SOL_SOCKET, SO_REUSEADDR, &tmp, sizeof(int)) < 0)
         syserr("setsockopt");
 
-    if (bind(socket_fd, (sockaddr*)&server_address, sizeof(server_address)) < 0) syserr("bind"); // TODO: jak zrobic, zeby sluchac na wszystkich portach?
+    if (bind(socket_fd, (sockaddr*)&server_address, sizeof(server_address)) < 0) syserr("bind");
     if (listen(socket_fd, QUEUE_LENGTH) < 0) syserr("listen");
 
     main_server_loop(socket_fd, game_scenario, timeout);

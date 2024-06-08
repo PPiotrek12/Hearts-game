@@ -108,7 +108,7 @@ void send_message(int fd, message mess, string peer_addr, bool is_server, bool i
     string current_time = get_current_time();
     if (is_auto_player) {
         cout << "[" << local_address(fd) << "," << peer_addr
-             << "," << current_time << "] " << to_send; // TODO: czy tu nie powinno byc entera?
+             << "," << current_time << "] " << to_send;
         fflush(stdout);
     }
 }

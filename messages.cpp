@@ -54,12 +54,15 @@ string get_current_time() {
 
 const int MAX_SIZE = 1000;
 // Function reading a message from the socket - reads it into the buffer.
-int read_message(int fd, string *buffer) {
+int read_message(int fd, string *buffer, bool is_server) {
     char act[MAX_SIZE];
     int length = read(fd, act, MAX_SIZE);
     if (length < 0) {
-        if (errno == ECONNRESET) return 0;
-        syserr("read");
+        if (is_server) {
+            soft_syserr("read");
+            return 0;
+        }
+        else syserr("read");
     }
     if (length == 0) return 0;
     *buffer += string(act, length);
@@ -91,14 +94,17 @@ message parse_message(int fd, string *buffer, string peer_addr, bool is_auto_pla
     return res;
 }
 
-void send_message(int fd, message mess, string peer_addr, bool is_auto_player) {
+void send_message(int fd, message mess, string peer_addr, bool is_server, bool is_auto_player) {
     string to_send = mess.to_message();
     int length = writen(fd, (char*)to_send.c_str(), to_send.size());
     if (length < 0) {
-        if (errno == ECONNRESET) return;
-        syserr("write");
+        if (is_server) {
+            soft_syserr("write");
+            return;
+        }
+        else syserr("write");
     }
-        
+
     string current_time = get_current_time();
     if (is_auto_player) {
         cout << "[" << local_address(fd) << "," << peer_addr

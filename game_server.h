@@ -80,11 +80,11 @@ struct Trick_server: Trick {
     int how_many_played = 0, act_player = -1;
     void send_trick(int fd, string addr) {
         message mess = {.trick = *this, .is_trick = true};
-        send_message(fd, mess, addr);
+        send_message(fd, mess, addr, true);
     }
     void send_wrong(int fd, string addr) {
         message mess = {.wrong = {.trick_number = trick_number}, .is_wrong = true};
-        send_message(fd, mess, addr);
+        send_message(fd, mess, addr, true);
     }
 };
 
@@ -105,7 +105,7 @@ struct Deal_server {
     void send_deals(shared_ptr<Listener> listener) {
         for (int i = 0; i < 4; i++) {
             message mess = {.deal = deals[i], .is_deal = true};
-            send_message(listener->clients[i].fd, mess, listener->clients[i].addr);
+            send_message(listener->clients[i].fd, mess, listener->clients[i].addr, true);
         }
     }
 };
@@ -157,13 +157,13 @@ struct Game_stage_server {
             if (occupied[i]) seats.push_back(int_to_seat(i));
         busy.players = seats;
         message mess = {.busy = busy, .is_busy = true};
-        send_message(fd, mess, addr);
+        send_message(fd, mess, addr, true);
     }
 
     void send_all_taken(int fd, string addr) {
         for (int i = 0; i < (int)all_taken.size(); i++) {
             message mess = {.taken = all_taken[i], .is_taken = true};
-            send_message(fd, mess, addr);
+            send_message(fd, mess, addr, true);
         }
     }
 };

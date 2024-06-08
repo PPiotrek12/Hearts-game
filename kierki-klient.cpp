@@ -101,7 +101,7 @@ void process_trick_message(shared_ptr<Game_stage_client> game, Trick trick) {
     else { // Auto player.
         Trick response = play_a_card(game, trick);
         message move = {.trick = response, .is_trick = true};
-        send_message(game->socket_fd, move, address_port, game->is_auto_player);
+        send_message(game->socket_fd, move, address_port, game->is_auto_player, false);
     }
 }
 
@@ -153,7 +153,7 @@ void process_total_message(shared_ptr<Game_stage_client> game, Score total) {
 }
 
 void receive_server_message(shared_ptr<Game_stage_client> game, pollfd *fds) {
-    int length = read_message(fds[0].fd, &(game->buffer_from_server));
+    int length = read_message(fds[0].fd, &(game->buffer_from_server), false);
     if (!length) { // Server disconnected.
         close(fds[0].fd);
         if (game->was_total && game->was_score) exit(0);
@@ -184,7 +184,7 @@ void receive_user_message(shared_ptr<Game_stage_client> game) {
         vector <Card> choice = {Card(input.substr(1, input.size() - 1))};
         Trick response = Trick{.trick_number = game->act_trick_number, .cards = choice};
         message move = {.trick = response, .is_trick = true};
-        send_message(game->socket_fd, move, address_port, game->is_auto_player);
+        send_message(game->socket_fd, move, address_port, game->is_auto_player, false);
         game->waiting_for_card = false;
     }
     else {
@@ -200,7 +200,7 @@ void main_client_loop(pollfd *fds, bool is_auto, char seat) {
     game->socket_fd = fds[0].fd;
 
     message iam = {.iam = {.player = seat}, .is_iam = true};
-    send_message(fds[0].fd, iam, address_port, game->is_auto_player);
+    send_message(fds[0].fd, iam, address_port, game->is_auto_player, false);
     int fds_nr = 2;
     if (is_auto) fds_nr = 1;
 
@@ -208,6 +208,7 @@ void main_client_loop(pollfd *fds, bool is_auto, char seat) {
         fds[0].revents = fds[1].revents = 0;
         int poll_status = poll(fds, fds_nr, -1);
         if (poll_status < 0) syserr("poll");
+        sleep(2);
         if (poll_status == 0) continue;
         if (fds[0].revents & (POLLIN | POLLERR)) // Server message.
             receive_server_message(game, fds);

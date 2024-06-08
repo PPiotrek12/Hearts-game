@@ -123,7 +123,7 @@ void rejoined(int fd, string addr, int seat, shared_ptr<Game_stage_server> game)
         game->game_stopped = false;
     message mess = {.deal = game->game_scenario.deals[game->deal_number].deals[seat], 
                     .is_deal = true};
-    send_message(fd, mess, addr);
+    send_message(fd, mess, addr, true);
     game->send_all_taken(fd, addr);
 }
 
@@ -165,7 +165,8 @@ void receive_from_not_playing(shared_ptr <Listener> listener,
             i--;
         }
         if (listener->clients[i].revents & (POLLIN | POLLERR)) {
-            int length = read_message(listener->clients[i].fd, &(listener->clients[i].buffer));
+            int length = read_message(listener->clients[i].fd,
+                                      &(listener->clients[i].buffer), true);
             if (!length) // Client disconnected.
                 close(listener->clients[i].fd);
             else {
@@ -196,15 +197,15 @@ void ask_next_player(shared_ptr<Listener> listener, shared_ptr<Game_stage_server
         game->all_taken.push_back(taken);
         message mess = {.taken = taken, .is_taken = true};
         for (int i = 0; i < 4; i++)
-            send_message(listener->clients[i].fd, mess, listener->clients[i].addr);
+            send_message(listener->clients[i].fd, mess, listener->clients[i].addr, true);
 
         if (game->act_deal.deals[0].cards.empty()) { // End of the deal.
             // Sending SCORE and TOTAL messages and starting new deal.
             message score = {.score = game->act_deal.scores, .is_score = true};
             message total = {.total = game->total_scores, .is_total = true};
             for (int i = 0; i < 4; i++) {
-                send_message(listener->clients[i].fd, score, listener->clients[i].addr);
-                send_message(listener->clients[i].fd, total, listener->clients[i].addr);
+                send_message(listener->clients[i].fd, score, listener->clients[i].addr, true);
+                send_message(listener->clients[i].fd, total, listener->clients[i].addr, true);
             }
             new_deal(listener, game);
         }
@@ -253,7 +254,8 @@ void receive_from_playing(shared_ptr <Listener> listener,
         }
         if (listener->clients[i].revents & (POLLIN | POLLERR)) {
             fflush  (stdout);
-            int length = read_message(listener->clients[i].fd, &(listener->clients[i].buffer));
+            int length = read_message(listener->clients[i].fd, 
+                                      &(listener->clients[i].buffer), true);
             if (!length) { // Client disconnected.
                 listener->clients[i] = {-1, -1, 0, "", ""};
                 game->occupied[i] = false;

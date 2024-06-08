@@ -22,6 +22,21 @@ void syserr(const char* fmt, ...)
     exit(1);
 }
 
+void soft_syserr(const char* fmt, ...)
+{
+    va_list fmt_args;
+    int org_errno = errno;
+
+    fprintf(stderr, "\tERROR: ");
+
+    va_start(fmt_args, fmt);
+    vfprintf(stderr, fmt, fmt_args);
+    va_end(fmt_args);
+
+    fprintf(stderr, " (%d; %s)\n", org_errno, strerror(org_errno));
+    fflush(stderr);
+}
+
 void fatal(const char* fmt, ...)
 {
     va_list fmt_args;

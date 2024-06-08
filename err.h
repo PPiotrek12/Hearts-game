@@ -6,6 +6,10 @@
 /* Print information about a system error and quits. */
 void syserr(const char* fmt, ...);
 
+/* Print information about a system error. */
+void soft_syserr(const char* fmt, ...);
+
+
 /* Print information about an error and quits. */
 void fatal(const char* fmt, ...);
 

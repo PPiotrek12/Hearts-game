@@ -101,7 +101,7 @@ void process_trick_message(shared_ptr<Game_stage_client> game, Trick trick) {
     else { // Auto player.
         Trick response = play_a_card(game, trick);
         message move = {.trick = response, .is_trick = true};
-        send_message(game->socket_fd, move, address_port, game->is_auto_player, false);
+        send_message(game->socket_fd, move, address_port, false, game->is_auto_player);
     }
 }
 
@@ -184,7 +184,7 @@ void receive_user_message(shared_ptr<Game_stage_client> game) {
         vector <Card> choice = {Card(input.substr(1, input.size() - 1))};
         Trick response = Trick{.trick_number = game->act_trick_number, .cards = choice};
         message move = {.trick = response, .is_trick = true};
-        send_message(game->socket_fd, move, address_port, game->is_auto_player, false);
+        send_message(game->socket_fd, move, address_port, false, game->is_auto_player);
         game->waiting_for_card = false;
     }
     else {
@@ -200,7 +200,7 @@ void main_client_loop(pollfd *fds, bool is_auto, char seat) {
     game->socket_fd = fds[0].fd;
 
     message iam = {.iam = {.player = seat}, .is_iam = true};
-    send_message(fds[0].fd, iam, address_port, game->is_auto_player, false);
+    send_message(fds[0].fd, iam, address_port, false, game->is_auto_player);
     int fds_nr = 2;
     if (is_auto) fds_nr = 1;
 

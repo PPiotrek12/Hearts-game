@@ -138,8 +138,8 @@ struct Trick {
             mess = mess.substr(1, mess.size() - 1);
         }
         if (trick_number > 13 || trick_number < 1) trick_number = -1;
-        if (mess.size() > 1 && !Card::is_card_correct(mess.substr(0, 2)) && 
-                !Card::is_card_correct(mess.substr(0, 3)))
+        if (mess.size() == 1 || (mess.size() > 1 && !Card::is_card_correct(mess.substr(0, 2)) && 
+                !Card::is_card_correct(mess.substr(0, 3))))
             trick_number = -1;
         if (trick_number == -1) return;
         for (int i = 0; i < (int)mess.size(); i++) {

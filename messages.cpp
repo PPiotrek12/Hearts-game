@@ -1,17 +1,18 @@
-#include <stdint.h>
-#include <vector>
-#include <string>
-#include <iostream>
-#include <netinet/in.h>
 #include <arpa/inet.h>
-#include <istream>
+#include <netinet/in.h>
+#include <stdint.h>
 #include <unistd.h>
+
 #include <chrono>
 #include <ctime>
+#include <iostream>
+#include <istream>
+#include <string>
+#include <vector>
 
-#include "messages.h"
 #include "common.h"
 #include "err.h"
+#include "messages.h"
 
 using namespace std;
 
@@ -42,12 +43,12 @@ string get_current_time() {
     auto now = chrono::system_clock::now();
     time_t time = chrono::system_clock::to_time_t(now);
     char buffer[100];
-    int milisec = chrono::duration_cast<chrono::milliseconds>
-                  (now.time_since_epoch()).count() % 1000;
+    int milisec =
+        chrono::duration_cast<chrono::milliseconds>(now.time_since_epoch()).count() % 1000;
     strftime(buffer, sizeof(buffer), "%Y-%m-%dT%H:%M:%S.", localtime(&time));
     string res = buffer;
     string milisec_str = to_string(milisec);
-    while ((int)milisec_str.size()< 3) milisec_str = "0" + milisec_str;
+    while ((int)milisec_str.size() < 3) milisec_str = "0" + milisec_str;
     res += milisec_str;
     return res;
 }
@@ -61,8 +62,8 @@ int read_message(int fd, string *buffer, bool is_server) {
         if (is_server) {
             soft_syserr("read");
             return 0;
-        }
-        else syserr("read");
+        } else
+            syserr("read");
     }
     if (length == 0) return 0;
     *buffer += string(act, length);
@@ -80,14 +81,14 @@ message parse_message(int fd, string *buffer, string peer_addr, bool is_auto_pla
         }
     }
     message res;
-    if (mess.empty()) { // There weren't any full messages in the buffer.
+    if (mess.empty()) {  // There weren't any full messages in the buffer.
         res.empty = true;
         return res;
     }
     string current_time = get_current_time();
     if (is_auto_player) {
-        cout << "[" << peer_addr << "," << local_address(fd) 
-             << "," << current_time << "] " << mess << "\r\n";
+        cout << "[" << peer_addr << "," << local_address(fd) << "," << current_time << "] " << mess
+             << "\r\n";
         fflush(stdout);
     }
     res.parse(mess);
@@ -96,19 +97,19 @@ message parse_message(int fd, string *buffer, string peer_addr, bool is_auto_pla
 
 void send_message(int fd, message mess, string peer_addr, bool is_server, bool is_auto_player) {
     string to_send = mess.to_message();
-    int length = writen(fd, (char*)to_send.c_str(), to_send.size());
+    int length = writen(fd, (char *)to_send.c_str(), to_send.size());
     if (length < 0) {
         if (is_server) {
             soft_syserr("write");
             return;
-        }
-        else syserr("write");
+        } else
+            syserr("write");
     }
 
     string current_time = get_current_time();
     if (is_auto_player) {
-        cout << "[" << local_address(fd) << "," << peer_addr
-             << "," << current_time << "] " << to_send;
+        cout << "[" << local_address(fd) << "," << peer_addr << "," << current_time << "] "
+             << to_send;
         fflush(stdout);
     }
 }

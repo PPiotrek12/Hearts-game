@@ -1,23 +1,24 @@
 #ifndef MIM_GAME_SERVER_H
 #define MIM_GAME_SERVER_H
 
-#include <iostream>
-#include <string>
 #include <netinet/in.h>
-#include <map>
-#include <vector>
+
 #include <fstream>
+#include <iostream>
+#include <map>
+#include <string>
+#include <vector>
 
 #include "common.h"
-#include "messages.h"
 #include "err.h"
+#include "messages.h"
 
 using namespace std;
 
 // Wrapper of pollfd structure with timeout in milliseconds and buffer for reading messages.
 struct Timeout_fd {
     int fd;
-    int timeout; // In milliseconds, -1 if no timeout.
+    int timeout;  // In milliseconds, -1 if no timeout.
     int revents;
     string buffer;
     string addr;
@@ -28,26 +29,28 @@ struct Timeout_fd {
 // poll which ends after the shortest timeout of all clients. It updates timeouts and revents.
 // Additionally it has a parameter game_stopped which is used to not poll players when it is set 1.
 struct Listener {
-    vector <Timeout_fd> clients; // First 4 clients are players, the rest are not.
+    vector<Timeout_fd> clients;  // First 4 clients are players, the rest are not.
     Timeout_fd accepts;
     void wrapped_poll(bool game_stopped = false) {
         pollfd fds[clients.size() + 1];
         fds[0] = {.fd = accepts.fd, .events = POLLIN, .revents = 0};
         int min_timeout = -1;
         for (int i = 0; i < (int)clients.size(); i++) {
-            if (game_stopped && i < 4) // Do not poll players when game stopped.
-                fds[i + 1] = {.fd = -1, .events = 0, .revents = 0}; 
+            if (game_stopped && i < 4)  // Do not poll players when game stopped.
+                fds[i + 1] = {.fd = -1, .events = 0, .revents = 0};
             else {
                 fds[i + 1] = {.fd = clients[i].fd, .events = POLLIN, .revents = 0};
                 if (clients[i].timeout >= 0) {
-                    if (min_timeout == -1) min_timeout = clients[i].timeout;
-                    else min_timeout = min(min_timeout, clients[i].timeout);
+                    if (min_timeout == -1)
+                        min_timeout = clients[i].timeout;
+                    else
+                        min_timeout = min(min_timeout, clients[i].timeout);
                 }
             }
         }
-        for (int i = 0; i < (int)clients.size() + 1; i++) { 
+        for (int i = 0; i < (int)clients.size() + 1; i++) {
             if (fds[i].fd != -1 && fcntl(fds[i].fd, F_SETFL, O_NONBLOCK) < 0)
-                syserr("fcntl"); // Set non-blocking mode.
+                syserr("fcntl");  // Set non-blocking mode.
             fds[i].revents = 0;
         }
 
@@ -65,7 +68,7 @@ struct Listener {
         // Update timeouts and revents.
         accepts.revents = fds[0].revents;
         for (int i = 0; i < (int)clients.size(); i++) {
-            if (game_stopped && i < 4) { // Do not update players when game stopped.
+            if (game_stopped && i < 4) {  // Do not update players when game stopped.
                 clients[i].revents = 0;
                 continue;
             }
@@ -76,7 +79,7 @@ struct Listener {
 };
 
 // Struct representing a specific trick for all players.
-struct Trick_server: Trick {
+struct Trick_server : Trick {
     int how_many_played = 0, act_player = -1;
     void send_trick(int fd, string addr) {
         message mess = {.trick = *this, .is_trick = true};
@@ -91,7 +94,7 @@ struct Trick_server: Trick {
 // Stuct representing a specific deal for all players.
 struct Deal_server {
     int deal_type = 0;
-    int first_player = 0; // N=0, E=1, S=2, W=3
+    int first_player = 0;  // N=0, E=1, S=2, W=3
     Score scores;
     Deal deals[4];
     void parse(string header, string list1, string list2, string list3, string list4) {
@@ -112,7 +115,7 @@ struct Deal_server {
 
 // Struct representing all deals in the game read from the file.
 struct Game_scenario {
-    vector <Deal_server> deals;
+    vector<Deal_server> deals;
     void parse(string file) {
         ifstream file_stream;
         file_stream.open(file);
@@ -146,13 +149,13 @@ struct Game_stage_server {
     int deal_number = -1;
     Deal_server act_deal;
     Trick_server act_trick;
-    vector <Taken> all_taken;    
+    vector<Taken> all_taken;
 
     Game_scenario game_scenario;
 
     void send_busy(int fd, string addr) {
         Busy busy;
-        vector <char> seats;
+        vector<char> seats;
         for (int i = 0; i < 4; i++)
             if (occupied[i]) seats.push_back(int_to_seat(i));
         busy.players = seats;

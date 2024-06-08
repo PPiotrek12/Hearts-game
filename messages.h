@@ -1,10 +1,11 @@
 #ifndef MIM_MESSAGES_H
 #define MIM_MESSAGES_H
 
+#include <stdlib.h>
+
+#include <iostream>
 #include <string>
 #include <vector>
-#include <iostream>
-#include <stdlib.h>
 
 using namespace std;
 
@@ -13,35 +14,47 @@ struct Card {
     char color;
     int value;
     Card(string mess) {
-        if (mess[0] == '1' && mess[1] == '0') value = 10;
-        else if (mess[0] == 'J') value = 11;
-        else if (mess[0] == 'Q') value = 12;
-        else if (mess[0] == 'K') value = 13;
-        else if (mess[0] == 'A') value = 14;
-        else value = mess[0] - '0';
+        if (mess[0] == '1' && mess[1] == '0')
+            value = 10;
+        else if (mess[0] == 'J')
+            value = 11;
+        else if (mess[0] == 'Q')
+            value = 12;
+        else if (mess[0] == 'K')
+            value = 13;
+        else if (mess[0] == 'A')
+            value = 14;
+        else
+            value = mess[0] - '0';
         color = mess[mess.size() - 1];
     }
     static bool is_card_correct(string mess) {
         if (mess.size() == 2) {
-            if ((mess[0] >= '2' && mess[0] <= '9') 
-                    ||  mess[0] == 'J' || mess[0] == 'Q' || mess[0] == 'K' || mess[0] == 'A')
+            if ((mess[0] >= '2' && mess[0] <= '9') || mess[0] == 'J' || mess[0] == 'Q' ||
+                mess[0] == 'K' || mess[0] == 'A')
                 if (mess[1] == 'S' || mess[1] == 'H' || mess[1] == 'D' || mess[1] == 'C')
                     return true;
         } else if (mess.size() == 3) {
             if (mess[0] == '1' && mess[1] == '0' &&
-                    (mess[2] == 'S' || mess[2] == 'H' || mess[2] == 'D' || mess[2] == 'C'))
+                (mess[2] == 'S' || mess[2] == 'H' || mess[2] == 'D' || mess[2] == 'C'))
                 return true;
         }
         return false;
     }
     string to_str() {
         string res;
-        if (value == 10) res += "10";
-        else if (value == 11) res += "J";
-        else if (value == 12) res += "Q";
-        else if (value == 13) res += "K";
-        else if (value == 14) res += "A";
-        else res += string(1, value + '0');
+        if (value == 10)
+            res += "10";
+        else if (value == 11)
+            res += "J";
+        else if (value == 12)
+            res += "Q";
+        else if (value == 13)
+            res += "K";
+        else if (value == 14)
+            res += "A";
+        else
+            res += string(1, value + '0');
         res += string(1, color);
         return res;
     }
@@ -51,25 +64,23 @@ struct Card {
 struct Iam {
     char player;
     void parse(string mess) {
-        if (mess.size() == 1) player = mess[0];
-        else player = 'X';
+        if (mess.size() == 1)
+            player = mess[0];
+        else
+            player = 'X';
     }
-    string to_message() {
-        return "IAM" + string(1, player) + "\r\n";
-    }
+    string to_message() { return "IAM" + string(1, player) + "\r\n"; }
 };
 
 // Struct representing a BUSY message.
 struct Busy {
-    vector <char> players;
+    vector<char> players;
     void parse(string mess) {
-        for (int i = 0; i < (int)mess.size(); i++)
-            players.push_back(mess[i]);
+        for (int i = 0; i < (int)mess.size(); i++) players.push_back(mess[i]);
     }
     string to_message() {
         string res = "BUSY";
-        for (int i = 0; i < (int)players.size(); i++)
-            res += string(1, players[i]);
+        for (int i = 0; i < (int)players.size(); i++) res += string(1, players[i]);
         res += "\r\n";
         return res;
     }
@@ -88,7 +99,7 @@ struct Busy {
 struct Deal {
     int deal_type;
     char first_player;
-    vector <Card> cards;
+    vector<Card> cards;
     void parse(string mess) {
         deal_type = mess[0] - '0';
         first_player = mess[1];
@@ -96,8 +107,7 @@ struct Deal {
             if (mess[i] == '1') {
                 cards.push_back(Card(mess.substr(i, 3)));
                 i += 2;
-            }
-            else {
+            } else {
                 cards.push_back(Card(mess.substr(i, 2)));
                 i++;
             }
@@ -105,14 +115,13 @@ struct Deal {
     }
     string to_message() {
         string res = "DEAL" + string(1, deal_type + '0') + string(1, first_player);
-        for (int i = 0; i < (int)cards.size(); i++)
-            res += cards[i].to_str();
+        for (int i = 0; i < (int)cards.size(); i++) res += cards[i].to_str();
         res += "\r\n";
         return res;
     }
     string describe() {
-        string res = "New deal " + to_string(deal_type) + ": staring place "
-                     + string(1, first_player) + ", your cards: ";
+        string res = "New deal " + to_string(deal_type) + ": staring place " +
+                     string(1, first_player) + ", your cards: ";
         for (int i = 0; i < (int)cards.size(); i++) {
             res += cards[i].to_str();
             if (i != (int)cards.size() - 1) res += ", ";
@@ -122,32 +131,31 @@ struct Deal {
     }
 };
 
-// Struct representing a trick for one player. // If trick_number == -1, 
+// Struct representing a trick for one player. // If trick_number == -1,
 // then message is completly wrong - disconnecting client.
 struct Trick {
     int trick_number;
-    vector <Card> cards;
+    vector<Card> cards;
     void parse(string mess) {
         trick_number = mess[0] - '0';
         mess = mess.substr(1, mess.size() - 1);
         // Check if card code doesn't start on the first index => trick number is two-digit.
-        if ((int)mess.size() > 0 && !Card::is_card_correct(mess.substr(0, 2)) 
-                && !Card::is_card_correct(mess.substr(0, 3))) {
+        if ((int)mess.size() > 0 && !Card::is_card_correct(mess.substr(0, 2)) &&
+            !Card::is_card_correct(mess.substr(0, 3))) {
             trick_number *= 10;
             trick_number += mess[0] - '0';
             mess = mess.substr(1, mess.size() - 1);
         }
         if (trick_number > 13 || trick_number < 1) trick_number = -1;
-        if (mess.size() == 1 || (mess.size() > 1 && !Card::is_card_correct(mess.substr(0, 2)) && 
-                !Card::is_card_correct(mess.substr(0, 3))))
+        if (mess.size() == 1 || (mess.size() > 1 && !Card::is_card_correct(mess.substr(0, 2)) &&
+                                 !Card::is_card_correct(mess.substr(0, 3))))
             trick_number = -1;
         if (trick_number == -1) return;
         for (int i = 0; i < (int)mess.size(); i++) {
             if (mess[i] == '1') {
                 cards.push_back(Card(mess.substr(i, 3)));
                 i += 2;
-            }
-            else {
+            } else {
                 cards.push_back(Card(mess.substr(i, 2)));
                 i++;
             }
@@ -157,12 +165,11 @@ struct Trick {
         string res = "TRICK";
         if (trick_number > 9) res += string(1, trick_number / 10 + '0');
         res += string(1, trick_number % 10 + '0');
-        for (int i = 0; i < (int)cards.size(); i++)
-            res += cards[i].to_str();
+        for (int i = 0; i < (int)cards.size(); i++) res += cards[i].to_str();
         res += "\r\n";
         return res;
     }
-    string describe(vector <Card> avaible_cards) {
+    string describe(vector<Card> avaible_cards) {
         string res = "Trick: (" + to_string(trick_number) + ") ";
         for (int i = 0; i < (int)cards.size(); i++) {
             res += cards[i].to_str();
@@ -173,7 +180,7 @@ struct Trick {
         for (int i = 0; i < (int)avaible_cards.size(); i++) {
             res += avaible_cards[i].to_str();
             if (i != (int)avaible_cards.size() - 1) res += ", ";
-        }          
+        }
         res += "\n";
         return res;
     }
@@ -205,13 +212,13 @@ struct Wrong {
 struct Taken {
     int trick_number;
     char player;
-    vector <Card> cards;
+    vector<Card> cards;
     void parse(string mess) {
         trick_number = mess[0] - '0';
         int i = 1;
         // Check if card code doesn't start on the first index => trick number is two-digit.
-        if ((int)mess.size() > 1 && !Card::is_card_correct(mess.substr(1, 2)) 
-                && !Card::is_card_correct(mess.substr(1, 3))) {
+        if ((int)mess.size() > 1 && !Card::is_card_correct(mess.substr(1, 2)) &&
+            !Card::is_card_correct(mess.substr(1, 3))) {
             trick_number *= 10;
             trick_number += mess[1] - '0';
             i++;
@@ -220,8 +227,7 @@ struct Taken {
             if (mess[i] == '1') {
                 cards.push_back(Card(mess.substr(i, 3)));
                 i += 2;
-            }
-            else {
+            } else {
                 cards.push_back(Card(mess.substr(i, 2)));
                 i++;
             }
@@ -232,8 +238,7 @@ struct Taken {
         string res = "TAKEN";
         if (trick_number > 9) res += string(1, trick_number / 10 + '0');
         res += string(1, trick_number % 10 + '0');
-        for (int i = 0; i < (int)cards.size(); i++)
-            res += cards[i].to_str();
+        for (int i = 0; i < (int)cards.size(); i++) res += cards[i].to_str();
         res += string(1, player);
         res += "\r\n";
         return res;
@@ -251,8 +256,8 @@ struct Taken {
 
 // Struct representing a SCORE and TAKEN message.
 struct Score {
-    vector <int> scores = {0, 0, 0, 0};
-    vector <char> players = {'N', 'E', 'S', 'W'};
+    vector<int> scores = {0, 0, 0, 0};
+    vector<char> players = {'N', 'E', 'S', 'W'};
     bool is_total = false;
     void parse(string mess, bool total = false) {
         scores.clear();
@@ -262,8 +267,8 @@ struct Score {
         for (int i = 0; i < (int)mess.size(); i++) {
             if (mess[i] == 'E' || mess[i] == 'N' || mess[i] == 'W' || mess[i] == 'S') {
                 if (last_palyer != -1)
-                    scores.push_back(atoi(
-                        mess.substr(last_palyer + 1, i - last_palyer - 1).c_str()));
+                    scores.push_back(
+                        atoi(mess.substr(last_palyer + 1, i - last_palyer - 1).c_str()));
                 last_palyer = i;
                 players.push_back(mess[i]);
             }
@@ -272,8 +277,10 @@ struct Score {
     }
     string to_message() {
         string res;
-        if (is_total) res = "TOTAL";
-        else res = "SCORE"; 
+        if (is_total)
+            res = "TOTAL";
+        else
+            res = "SCORE";
         for (int i = 0; i < (int)scores.size(); i++) {
             res += string(1, players[i]);
             res += to_string(scores[i]);
@@ -283,8 +290,10 @@ struct Score {
     }
     string describe() {
         string res;
-        if (is_total) res = "Total scores are:\n";
-        else res = "The scores are:\n";
+        if (is_total)
+            res = "Total scores are:\n";
+        else
+            res = "The scores are:\n";
         for (int i = 0; i < (int)scores.size(); i++)
             res += string(1, players[i]) + " | " + to_string(scores[i]) + "\n";
         res += "\n";

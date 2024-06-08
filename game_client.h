@@ -1,21 +1,22 @@
 #ifndef MIM_GAME_CLIENT_H
 #define MIM_GAME_CLIENT_H
 
-#include <iostream>
-#include <string>
-#include <netinet/in.h>
 #include <arpa/inet.h>
-#include <sys/socket.h>
-#include <unistd.h>
-#include <memory>
-#include <vector>
-#include <cstdio>
+#include <netinet/in.h>
 #include <poll.h>
 #include <signal.h>
+#include <sys/socket.h>
+#include <unistd.h>
+
+#include <cstdio>
+#include <iostream>
+#include <memory>
+#include <string>
+#include <vector>
 
 #include "common.h"
-#include "messages.h"
 #include "err.h"
+#include "messages.h"
 
 using namespace std;
 
@@ -31,14 +32,14 @@ struct Game_stage_client {
     int socket_fd;
     Deal act_deal;
     Trick act_trick;
-    vector <Taken> all_taken;
+    vector<Taken> all_taken;
     string buffer_from_server;
 
-    void remove_card(vector <Card> cards) {
+    void remove_card(vector<Card> cards) {
         for (int i = 0; i < (int)(act_deal.cards).size(); i++) {
             for (int j = 0; j < (int)cards.size(); j++) {
-                if (act_deal.cards[i].color == cards[j].color && 
-                        act_deal.cards[i].value == cards[j].value) {
+                if (act_deal.cards[i].color == cards[j].color &&
+                    act_deal.cards[i].value == cards[j].value) {
                     act_deal.cards.erase(act_deal.cards.begin() + i);
                     break;
                 }
@@ -47,8 +48,8 @@ struct Game_stage_client {
     }
 
     void ask_for_a_card() {
-        cout << "Waiting for your card choice (format: '!' + card code), " <<
-                "you still can type 'tricks'/'cards' command:\n";
+        cout << "Waiting for your card choice (format: '!' + card code), "
+             << "you still can type 'tricks'/'cards' command:\n";
         fflush(stdout);
     }
 

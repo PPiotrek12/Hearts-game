@@ -251,11 +251,11 @@ void receive_from_playing(shared_ptr<Listener> listener, shared_ptr<Game_stage_s
             int length =
                 read_message(listener->clients[i].fd, &(listener->clients[i].buffer), true);
             if (!length) {  // Client disconnected.
+                close(listener->clients[i].fd);
                 listener->clients[i] = {-1, -1, 0, "", ""};
                 game->occupied[i] = false;
                 game->how_many_occupied--;
                 if (game->game_started) game->game_stopped = true;
-                close(listener->clients[i].fd);
             }
         }
     }

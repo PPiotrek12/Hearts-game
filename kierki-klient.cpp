@@ -208,7 +208,6 @@ void main_client_loop(pollfd *fds, bool is_auto, char seat) {
         fds[0].revents = fds[1].revents = 0;
         int poll_status = poll(fds, fds_nr, -1);
         if (poll_status < 0) syserr("poll");
-        sleep(2);
         if (poll_status == 0) continue;
         if (fds[0].revents & (POLLIN | POLLERR)) // Server message.
             receive_server_message(game, fds);

@@ -1,5 +1,5 @@
 import random
-MAX_DEALS = 4
+MAX_DEALS = 500
 
 values = [2, 3, 4, 5, 6, 7, 8, 9, 10, 'J', 'Q', 'K', 'A']
 colors = ['H', 'D', 'C', 'S']
@@ -9,7 +9,7 @@ for value in values:
         cards.append(str(value) + color)
 seats = ['N', 'E', 'S', 'W']
 
-deals_nr = random.randint(1, MAX_DEALS)
+deals_nr = MAX_DEALS
 
 for i in range(deals_nr):
     deal_type = random.randint(1, 7)

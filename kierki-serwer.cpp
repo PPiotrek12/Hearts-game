@@ -216,7 +216,8 @@ void ask_next_player(shared_ptr<Listener> listener, shared_ptr<Game_stage_server
 
 void proceed_message_from_playing(message mess, shared_ptr<Listener> listener,
                                   shared_ptr<Game_stage_server> game, int i) {
-    if (!mess.is_trick) { // Wrong message - closing connection and stopping the game.
+    // Wrong message - closing connection and stopping the game.
+    if (!mess.is_trick || (mess.is_trick && mess.trick.trick_number == -1)) {
         wrong_msg(listener->clients[i].fd);
         listener->clients[i] = {-1, -1, 0, "", ""};
         game->occupied[i] = false;

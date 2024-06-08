@@ -122,21 +122,27 @@ struct Deal {
     }
 };
 
-// Struct representing a trick for one player.
+// Struct representing a trick for one player. // If trick_number == -1, 
+// then message is completly wrong - disconnecting client.
 struct Trick {
     int trick_number;
     vector <Card> cards;
     void parse(string mess) {
         trick_number = mess[0] - '0';
-        int i = 1;
+        mess = mess.substr(1, mess.size() - 1);
         // Check if card code doesn't start on the first index => trick number is two-digit.
-        if ((int)mess.size() > 1 && !Card::is_card_correct(mess.substr(1, 2)) 
-                && !Card::is_card_correct(mess.substr(1, 3))) {
+        if ((int)mess.size() > 0 && !Card::is_card_correct(mess.substr(0, 2)) 
+                && !Card::is_card_correct(mess.substr(0, 3))) {
             trick_number *= 10;
-            trick_number += mess[1] - '0';
-            i++;
+            trick_number += mess[0] - '0';
+            mess = mess.substr(1, mess.size() - 1);
         }
-        for (; i < (int)mess.size(); i++) {
+        if (trick_number > 13 || trick_number < 1) trick_number = -1;
+        if (mess.size() > 1 && !Card::is_card_correct(mess.substr(0, 2)) && 
+                !Card::is_card_correct(mess.substr(0, 3)))
+            trick_number = -1;
+        if (trick_number == -1) return;
+        for (int i = 0; i < (int)mess.size(); i++) {
             if (mess[i] == '1') {
                 cards.push_back(Card(mess.substr(i, 3)));
                 i += 2;

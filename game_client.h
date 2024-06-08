@@ -61,6 +61,7 @@ struct Game_stage_client {
             }
             cout << "\n";
         }
+        fflush(stdout);
         if (waiting_for_card) ask_for_a_card();
     }
 
@@ -70,6 +71,7 @@ struct Game_stage_client {
             if (i + 1 < (int)act_deal.cards.size()) cout << ", ";
         }
         cout << "\n";
+        fflush(stdout);
         if (waiting_for_card) ask_for_a_card();
     }
 };

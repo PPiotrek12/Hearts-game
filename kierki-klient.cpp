@@ -68,7 +68,10 @@ string address_port;
 
 void process_busy_message(shared_ptr<Game_stage_client> game, Busy busy) {
     if (!game->first_message) wrong_msg;
-    if (!game->is_auto_player) cout << busy.describe();
+    if (!game->is_auto_player) {
+        cout << busy.describe();
+        fflush(stdout);
+    }
     game->first_message = false;
 }
 
@@ -82,7 +85,10 @@ void process_deal_message(shared_ptr<Game_stage_client> game, Deal deal) {
         game->receive_previous_taken = false;
     game->first_message = false;
 
-    if (!game->is_auto_player) cout << deal.describe();
+    if (!game->is_auto_player) {
+        cout << deal.describe();
+        fflush(stdout);
+    }
     game->was_total = false;
     game->was_score = false;
     game->in_deal = true;
@@ -95,7 +101,10 @@ void process_trick_message(shared_ptr<Game_stage_client> game, Trick trick) {
     if (!game->in_trick && trick.trick_number != game->act_trick_number + 1) wrong_msg;
     if (game->in_trick && trick.trick_number != game->act_trick_number) wrong_msg;  // Retransmit.
 
-    if (!game->is_auto_player) cout << trick.describe(game->act_deal.cards);
+    if (!game->is_auto_player) {
+        cout << trick.describe(game->act_deal.cards);
+        fflush(stdout);
+    }
     game->in_trick = true;
     game->act_trick = trick;
     game->act_trick_number = trick.trick_number;
@@ -132,7 +141,10 @@ void process_taken_message(shared_ptr<Game_stage_client> game, Taken taken) {
     if (!game->in_trick && taken.trick_number != game->act_trick_number + 1) wrong_msg;
     if (game->waiting_for_card) wrong_msg;
 
-    if (!game->is_auto_player) cout << taken.describe();
+    if (!game->is_auto_player) {
+        cout << taken.describe();
+        fflush(stdout);
+    }
     game->remove_card(taken.cards);
     game->act_trick_number = taken.trick_number;
     game->in_trick = false;
@@ -142,7 +154,10 @@ void process_taken_message(shared_ptr<Game_stage_client> game, Taken taken) {
 void process_score_message(shared_ptr<Game_stage_client> game, Score score) {
     if (game->in_trick) wrong_msg;
 
-    if (!game->is_auto_player) cout << score.describe();
+    if (!game->is_auto_player) {
+        cout << score.describe();
+        fflush(stdout);
+    }
     game->all_taken.clear();
     game->in_deal = false;
     game->was_score = true;
@@ -151,7 +166,10 @@ void process_score_message(shared_ptr<Game_stage_client> game, Score score) {
 void process_total_message(shared_ptr<Game_stage_client> game, Score total) {
     if (game->in_trick) wrong_msg;
 
-    if (!game->is_auto_player) cout << total.describe();
+    if (!game->is_auto_player) {
+        cout << total.describe();
+        fflush(stdout);
+    }
     game->all_taken.clear();
     game->in_deal = false;
     game->was_total = true;

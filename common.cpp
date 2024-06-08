@@ -76,7 +76,7 @@ int get_server_address(char const *host, uint16_t port, bool useIPv4, bool useIP
     int errcode = getaddrinfo(host, NULL, &hints, &res);
     if (errcode != 0)
         fatal("getaddrinfo: %s", gai_strerror(errcode));
-    if (res->ai_family == AF_INET6) { // TODO: nie dziala laczenie sie do ipv6 gdy nie ma ustawionego ani useipv4 ani useipv6
+    if (res->ai_family == AF_INET6) {
         address6->sin6_family = AF_INET6;
         address6->sin6_addr = ((struct sockaddr_in6 *) (res->ai_addr))->sin6_addr;
         address6->sin6_port = htons(port);

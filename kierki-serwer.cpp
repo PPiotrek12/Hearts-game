@@ -58,7 +58,7 @@ void parse_arguments(int argc, char *argv[], uint16_t *port, bool *wasPortSet, s
                 for (char c : timeout_str)
                     if (!isdigit(c)) fatal("timeout must be a number");
                 if ((int)timeout_str.size() > 7 || 
-                        ((int)timeout_str.size() == 7 && timeout[0] != '1')) 
+                        ((int)timeout_str.size() == 7 && timeout_str[0] != '1')) 
                     fatal("timeout too big");   
                 *timeout = stoi(timeout_str);
                 i++;
